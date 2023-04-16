@@ -2,6 +2,8 @@
 // Created by Robert Sale on 4/8/23.
 //
 
+// TODO: Delete me
+
 #ifndef CLIENTSERVERCHATAPP_SOCKETHELPERS_H
 #define CLIENTSERVERCHATAPP_SOCKETHELPERS_H
 

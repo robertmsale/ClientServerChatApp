@@ -1,5 +1,6 @@
 #include "Console.h"
 #include "Commands.h"
+#include "Client.h"
 
 #define PHASE 1
 
@@ -12,7 +13,7 @@ int main() {
     tcgetattr(STDIN_FILENO, &orig_tios);
     disable_echo(&orig_tios);
 
-    SmartConsole::Console console;
+    SmartConsole::Console console{"$register, $exit, $getlist, $getlog"};
     SmartConsole::Clear(std::cout);
 #if PHASE == 1
     console.messages.emplace_back("Welcome to Chat App!");
@@ -27,6 +28,8 @@ int main() {
     console.update_console_size();
     std::thread renderer_thread = console.initialize_renderer();
     std::thread input_capture_thread = console.initialize_input_capture();
+    std::thread client_thread;
+    ClientServerChatApp::Client client{&console};
     std::string username;
     bool registered = false;
     std::string ip_address;
@@ -36,11 +39,7 @@ int main() {
     std::regex port_regex{"([1-9][0-9]{0,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5])"};
 #endif
     while(!console.shutdown.load()) {
-        auto future = console.buffer_promise->get_future();
-        auto user_msg = future.get();
-        auto old_promise = console.buffer_promise;
-        console.buffer_promise = new std::promise<std::string>;
-        delete old_promise;
+        auto user_msg = console.ring_buffer.rx();
 #if PHASE == 1
         if (ip_address.empty()) {
             if(std::regex_match(user_msg, ip_regex)) {
@@ -76,19 +75,31 @@ int main() {
                 UniqueLock lock{console.messages_mtx};
                 console.messages.emplace_back("[ERROR]: You have to register before entering commands or messages to the chat room");
                 console.refresh_text.resolve(true);
+                continue;
             }
-            continue;
+            client_thread = client.initialize_client();
+            client.sync_ip_address.resolve(ip_address);
+            client.sync_port.resolve(port);
+            client.sync_username.resolve(username);
+            auto res = client.sync_socket_created.retrieve();
+            if (!res) continue;
+            res = client.sync_socket_established.retrieve();
+            if (!res) continue;
+            registered = client.sync_registered.retrieve();
         }
+
+        client.send_buffer.tx(user_msg);
     }
 
 
-
+    client_thread.join();
     renderer_thread.join();
     input_capture_thread.join();
 
     tcsetattr(STDIN_FILENO, TCSAFLUSH, &orig_tios);
     return 0;
 }
+
 
 void disable_echo(struct termios* orig) {
     struct termios tios;

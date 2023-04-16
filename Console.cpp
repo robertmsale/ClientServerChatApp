@@ -116,10 +116,11 @@ void SmartConsole::ReadKey(char *output) {
 }
 
 char *SmartConsole::ReadLine() {
-    char output[SocketMaxMessageSize()];
-    std::cin >> output;
+    char* output = new char[SocketMaxMessageSize()];
+    std::cin.getline(output, SocketMaxMessageSize());
     std::cin.clear();
     std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+    return output;
 }
 void SmartConsole::SaveCursorPosition(std::ostream& ss) {
     ss << "\x1b[s";
@@ -195,6 +196,10 @@ void SmartConsole::InitializeTerminal() {
 #pragma endregion
 
 namespace SmartConsole {
+    Console::Console(std::string commands) {
+        memset(buffer, 0, SocketMaxMessageSize());
+        _commands = commands;
+    }
 #pragma region Console::
 #pragma region ComputedProperties
     int Console::msg_window_size() const {
@@ -256,7 +261,7 @@ namespace SmartConsole {
         ss << SmartConsole::Line::CBR;
         SmartConsole::SetCharacterSet(ss, SmartConsole::CharacterSet::ASCII);
         SmartConsole::SetFGColor(ss, SmartConsole::FGColor::BrightBlue);
-        ss << "~~ Commands: $register, $exit, $getlist, $getlog";
+        ss << "~~ Commands: " << _commands;
         SmartConsole::ResetFormat(ss);
     }
 
@@ -361,10 +366,11 @@ namespace SmartConsole {
             } else if(buff[0] == '\n') { // new line
                 if (strlen(console->buffer) == 0) continue;
                 if (strcmp(console->buffer, "$exit") == 0) {
+
                     console->shutdown.store(true);
                     console->refresh_text.resolve(true);
                 }
-                console->buffer_promise->set_value(std::string{console->buffer});
+                console->ring_buffer.tx(std::string{console->buffer});
                 console->buff_position = 0;
                 memset(console->buffer, 0, SocketMaxMessageSize());
             } else if (buff[0] >= ' ' && buff[0] <= '~') {
@@ -389,6 +395,13 @@ namespace SmartConsole {
     std::thread Console::initialize_input_capture() {
         return std::thread{run_input_capture, this};
     }
+
+    void Console::push_message(const std::string &message) {
+        UniqueLock lock{messages_mtx};
+        messages.push_back(message);
+        refresh_text.resolve(true);
+    }
+
 #pragma endregion
 
 #pragma endregion

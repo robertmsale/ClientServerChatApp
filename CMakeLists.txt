@@ -11,14 +11,16 @@ set(SHARED_SRCS
         SocketEntity.h
         Commands.h
         Console.cpp
-        Console.h SyncPoint.h)
+        Console.h
+        SyncPoint.h
+        RingBuffer.h)
 
 set(CLIENT_SRCS clientmain.cpp Client.cpp Client.h)
-set(SERVER_SRCS clientmain.cpp Server.cpp Server.h)
-
+set(SERVER_SRCS servermain.cpp Server.cpp Server.h)
 
 add_executable(client ${CLIENT_SRCS} ${SHARED_SRCS})
 target_precompile_headers(client PUBLIC pch.h)
+
 
 add_executable(server ${SERVER_SRCS} ${SHARED_SRCS})
 target_precompile_headers(server PUBLIC pch.h)

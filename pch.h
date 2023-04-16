@@ -1,9 +1,7 @@
 //
 // Created by Robert Sale on 4/10/23.
 //
-
-#ifndef CLIENTSERVERCHATAPP_PCH_H
-#define CLIENTSERVERCHATAPP_PCH_H
+#pragma once
 
 #include <algorithm>
 #include <arpa/inet.h>
@@ -30,7 +28,35 @@
 #include <type_traits>
 #include <unistd.h>
 #include <vector>
+#include <map>
+#include "RingBuffer.h"
+#include "DeferExec.h"
 
+/**
+ * Much needed shortcut for unique_locks
+ */
 using UniqueLock = std::unique_lock<std::mutex>;
 
-#endif //CLIENTSERVERCHATAPP_PCH_H
+/**
+ * The data type used by POSIX to describe the socket for clarity
+ */
+using SocketFileDescriptor = int;
+
+/**
+ * Data type of the socket size. This determines how large the initial message size part of the message will be.
+ */
+using SocketSizeType = char;
+
+/**
+ * Evaluates to how large the buffer will be for messages. This is dynamically evaluated at compile time based
+ * on the SocketSizeType and allows for flexibility.
+ * @return maximum size of message including first bytes describing actual size of payload
+ */
+constexpr size_t SocketMaxMessageSize() {
+    size_t size = sizeof(SocketSizeType);
+    for (size_t i = 1; i <= sizeof(SocketSizeType) * 8; ++i) {
+        size *= 2;
+    }
+    return size;
+}
+

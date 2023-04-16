@@ -4,15 +4,12 @@
 
 #ifndef BLACKJACKGAME_CONSOLE_H
 #define BLACKJACKGAME_CONSOLE_H
-#include "SocketEntity.h"
 #include "SyncPoint.h"
 #if defined(_WIN32)
 #include <Windows.h>
 #else
 #include <termios.h>
 #endif
-
-#include <vector>
 
 /**
  * Console functionality I wrote a long time ago for a C++ version of the PG2 Blackjack game
@@ -112,8 +109,12 @@ namespace SmartConsole {
      * Class responsible for managing standard input and output
      */
     class Console {
+    public:
+        Console(std::string commands);
 #pragma region LayoutProperties
     private:
+        /// Commands string below the messages window
+        std::string _commands;
         /// Atomic console width
         std::atomic<int> _console_width{-1};
         /// Atomic console height
@@ -147,6 +148,7 @@ namespace SmartConsole {
 
         /// Vector of messages that get printed to the screen
         std::vector<std::string> messages;
+        void push_message(const std::string& message);
 
         /// Mutex for input buffer
         /// TODO: Most likely not necessary and should be removed
@@ -155,16 +157,15 @@ namespace SmartConsole {
         /// Mutex for input buffer
         /// TODO: Most likely not necessary and should be removed
         std::condition_variable stdin_buff_cv;
-
         /// Standard Input Buffer used by input capture thread
         char buffer[SocketMaxMessageSize()];
 
         /// Position of the cursor for user input at any given time
         size_t buff_position{0};
 
-        /// Buffer promise
+        /// Ring buffer
         /// When this promise gets resolved it sends user input to the main thread to be processed
-        std::promise<std::string>* buffer_promise{new std::promise<std::string>};
+        Utilities::RingBuffer<std::string> ring_buffer;
 
         /// String stream for generating the console window
         /// using this rather than std::cout so the whole screen buffer can be generated before sending to stdout

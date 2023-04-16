@@ -2,6 +2,8 @@
 // Created by Robert Sale on 4/9/23.
 //
 
+// TODO: Delete me
+
 #include "SocketHelpers.h"
 #include "Printer.h"
 
@@ -21,6 +23,6 @@ int SocketHelpers::create_client_socket(std::string ip, int port) {
         Printer::print("[ERROR]: IP Address invalid.");
         return -1;
     }
-
+    return 0;
 
 }

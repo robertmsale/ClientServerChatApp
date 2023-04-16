@@ -5,28 +5,7 @@
 #ifndef CLIENTSERVERCHATAPP_SOCKETENTITY_H
 #define CLIENTSERVERCHATAPP_SOCKETENTITY_H
 
-/**
- * The data type used by POSIX to describe the socket for clarity
- */
-using SocketFileDescriptor = int;
-
-/**
- * Data type of the socket size. This determines how large the initial message size part of the message will be.
- */
-using SocketSizeType = char;
-
-/**
- * Evaluates to how large the buffer will be for messages. This is dynamically evaluated at compile time based
- * on the SocketSizeType and allows for flexibility.
- * @return maximum size of message including first bytes describing actual size of payload
- */
-constexpr size_t SocketMaxMessageSize() {
-    size_t size = sizeof(SocketSizeType);
-    for (size_t i = 1; i <= sizeof(SocketSizeType) * 8; ++i) {
-        size *= 2;
-    }
-    return size;
-}
+#include "Console.h"
 
 namespace ClientServerChatApp {
     /**
@@ -34,8 +13,13 @@ namespace ClientServerChatApp {
      */
     enum class SocketSignal {
         SUCCESS, SHUTDOWN, DISCONNECT, BIND_ERROR, CONNECT_ERROR, SETUP_ERROR,
-        STARTUP_ERROR, ADDRESS_ERROR, PARAMETER_ERROR, MESSAGE_ERROR, CONTINUE
+        STARTUP_ERROR, ADDRESS_ERROR, PARAMETER_ERROR, MESSAGE_ERROR, CONTINUE,
+        SELECT_ERROR, ACCEPT_ERROR, LISTEN_ERROR
     };
+    using MessageSignalType = std::string;
+    namespace MessageSignals {
+        constexpr MessageSignalType SRV_FULL() {return "SRV_FULL";}
+    }
     /**
       * For receiving messages
       */
@@ -49,13 +33,26 @@ namespace ClientServerChatApp {
      */
     class SocketEntity {
     protected:
+
+        SmartConsole::Console* console;
+
+        /// Turns response code into developer readable signal
+        static SocketSignal resolve_response(SmartConsole::Console* console, ssize_t _response_code);
+    public:
         /**
          * The Socket established by the client (int for file descriptor)
          */
         SocketFileDescriptor io;
-        static SocketSignal resolve_response(ssize_t _response_code);
-    public:
+        /// This gets set after each socket message
+        std::atomic<SocketSignal> active_signal;
+
+        /// Child thread sends socket created successful, main receives it
+        SyncPoint<bool> sync_socket_created;
+        /// Child thread sends socket connection successful, main receives it
+        SyncPoint<bool> sync_socket_established;
+
         SocketEntity();
+        ~SocketEntity();
         /**
          * Checks file descriptor and returns whether the socket was created successfully or not
          * @return

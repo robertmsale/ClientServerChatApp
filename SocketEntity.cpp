@@ -3,7 +3,6 @@
 //
 
 #include "SocketEntity.h"
-#include "Printer.h"
 
 namespace ClientServerChatApp {
     SocketEntity::SocketEntity(): io(-1) {}
@@ -12,22 +11,40 @@ namespace ClientServerChatApp {
 
     SocketSignal SocketEntity::create_socket() {
         io = socket(AF_INET, SOCK_STREAM, 0);
+        auto rv = SocketSignal::SUCCESS;
+        Utilities::DeferExec defer{[&]() {active_signal.store(rv);}};
         if (io < 0) {
-            Printer::print("[ERROR]: Failed to create socket.\n");
-            return SocketSignal::STARTUP_ERROR;
+            UniqueLock lock{console->messages_mtx};
+            console->messages.emplace_back("[ERROR]: Failed to create socket.");
+            console->refresh_text.resolve(true);
+            rv = SocketSignal::STARTUP_ERROR;
         }
-        return SocketSignal::SUCCESS;
+        return rv;
     }
 
-    SocketSignal SocketEntity::resolve_response(ssize_t _response_code) {
+    SocketSignal SocketEntity::resolve_response(SmartConsole::Console* console, ssize_t _response_code) {
+        auto rv = SocketSignal::SUCCESS;
         switch (_response_code) {
-            case 0:
-                Printer::print("[Signal]: Shutting down.\n");
-                return SocketSignal::SHUTDOWN;
-            case -1:
-                Printer::print("[Signal]: Disconnecting.\n");
-                return SocketSignal::DISCONNECT;
-            default: return SocketSignal::SUCCESS;
+            case 0: {
+                UniqueLock lock{console->messages_mtx};
+                console->messages.emplace_back("[INFO]: Shutting down.");
+                console->refresh_text.resolve(true);
+                rv = SocketSignal::SHUTDOWN;
+                break;
+            }
+            case -1: {
+                UniqueLock lock{console->messages_mtx};
+                console->messages.emplace_back("[INFO]:  Disconnecting.");
+                console->refresh_text.resolve(true);
+                rv = SocketSignal::DISCONNECT;
+                break;
+            }
+            default: break;
         }
+        return rv;
+    }
+
+    SocketEntity::~SocketEntity() {
+        close(io);
     }
 } // ClientServerChatApp

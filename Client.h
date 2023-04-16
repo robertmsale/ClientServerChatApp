@@ -11,12 +11,21 @@ namespace ClientServerChatApp {
     /**
      * Client object encapsulating the low level functionality of dealing with sockets
      */
-    class Client: SocketEntity {
+    class Client: public SocketEntity {
     private:
-        std::string username;
-        bool registered;
+        static void run_client(Client* client);
     public:
-        Client();
+        /// Main thread sends ip address, client thread receives it
+        SyncPoint<std::string> sync_ip_address;
+        /// Main thread sends port, client thread receives it
+        SyncPoint<std::string> sync_port;
+        /// Main thread sends username, client thread receives it
+        SyncPoint<std::string> sync_username;
+        /// Client thread sends registration results, main receives it
+        SyncPoint<bool> sync_registered;
+        /// Ring buffer for outgoing messages
+        Utilities::RingBuffer<std::string> send_buffer;
+        explicit Client(SmartConsole::Console* _console);
         ~Client();
         /**
          * Connects the socket to the server. Make sure the socket has been created before connecting.
@@ -36,6 +45,11 @@ namespace ClientServerChatApp {
          * @return Signal and string message received from server
          */
         ReceiveMessage recv_msg();
+        /**
+         * Initialize client on separate thread
+         * @return thread handle
+         */
+        std::thread initialize_client();
     };
 }
 
