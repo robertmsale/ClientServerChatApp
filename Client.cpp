@@ -71,6 +71,7 @@ namespace ClientServerChatApp {
     ReceiveMessage Client::recv_msg() {
         // Variables
         char buffer[SocketMaxMessageSize()];
+        memset(buffer, 0, SocketMaxMessageSize());
         SocketSizeType size;
 
         // Receive size
@@ -123,6 +124,7 @@ namespace ClientServerChatApp {
                 client->sync_registered.resolve(false);
             }
             client->sync_registered.resolve(true);
+            std::atomic<bool> receiver_running{true};
             // Initiate message receiver thread
             std::thread receiver{[&] {
                 while(!client->console->shutdown.load() /*&& client->active_signal.load() == SocketSignal::SUCCESS*/) {
@@ -133,7 +135,8 @@ namespace ClientServerChatApp {
                         case SocketSignal::DISCONNECT: {
                             client->console->push_message("[INFO]: Closing connection to server.");
                             client->console->refresh_text.resolve(true);
-//                            return;
+                            receiver_running.store(false);
+                            return;
                         }
                         case SocketSignal::SUCCESS: {
                             client->console->push_message(msg.message);
@@ -143,13 +146,16 @@ namespace ClientServerChatApp {
                     }
                 }
             }};
-            while(!client->console->shutdown.load() /*&& client->active_signal.load() == SocketSignal::SUCCESS*/) {
+            while(!client->console->shutdown.load() && receiver_running.load()) {
                 auto msg = client->send_buffer.rx();
                 client->send_msg(msg);
             }
             // At this point the connection to the server has been severed or shutdown has been initiated
             // if shutdown, start from the beginning of the loop, otherwise exit
             // Join receiver before shutting down
+            client->console->shutdown.store(true); // tell other services to shut down now
+            client->console->refresh_text.resolve(true);
+            client->send_buffer.tx("$exit");
             receiver.join();
         }
 

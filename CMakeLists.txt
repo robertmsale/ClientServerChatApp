@@ -13,7 +13,8 @@ set(SHARED_SRCS
         Console.cpp
         Console.h
         SyncPoint.h
-        RingBuffer.h)
+        RingBuffer.h
+        )
 
 set(CLIENT_SRCS clientmain.cpp Client.cpp Client.h)
 set(SERVER_SRCS servermain.cpp Server.cpp Server.h)

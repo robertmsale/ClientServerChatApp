@@ -54,7 +54,7 @@ namespace ClientServerChatApp {
                 if (client_sockets[i] > 0) FD_SET(client_sockets[i], &readfds);
                 if (client_sockets[i] > max_sd) max_sd = client_sockets[i];
             }
-            auto select_rv = select(max_sd+1, &readfds, nullptr, nullptr, nullptr);
+            auto select_rv = select(max_sd+1, &readfds, nullptr, nullptr, &timeout/*nullptr*/);
             if (select_rv < 0 && errno != EINTR) {
                 console->push_message("[ERROR]: Failed to select.");
                 signal = SocketSignal::SELECT_ERROR;
@@ -70,13 +70,18 @@ namespace ClientServerChatApp {
                     signal = SocketSignal::ACCEPT_ERROR;
                     continue;
                 }
-//                if (client_sockets.size() < MAX_USERS()) {
-//
-//                }
-                FD_SET(client_socket, &readfds);
-                std::string message = "[INFO]: New client connected";
-                console->push_message(message);
-                client_sockets.push_back(client_socket);
+                if (client_sockets.size() == MAX_USERS()) {
+                    std::string response = MessageSignals::SRV_FULL();
+                    auto size = (SocketSizeType)response.size();
+                    send(client_socket, &size, sizeof size, 0);
+                    send(client_socket, response.c_str(), response.size(), 0);
+                    close(client_socket);
+                } else {
+                    FD_SET(client_socket, &readfds);
+                    std::string message = "[INFO]: New client connected";
+                    console->push_message(message);
+                    client_sockets.push_back(client_socket);
+                }
             }
 
             for (size_t i = 0; i < client_sockets.size(); ++i) {
