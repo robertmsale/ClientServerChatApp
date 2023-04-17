@@ -6,15 +6,18 @@
 
 void disable_echo(struct termios* orig);
 
-void prompt_for_connection_details(std::vector<std::string>* messages);
+//void prompt_for_connection_details(std::vector<std::string>* messages);
 
 int main() {
+    // Get original terminal input/output structure
     struct termios orig_tios;
     tcgetattr(STDIN_FILENO, &orig_tios);
+    // Disable echo. This allows me to control all keyboard input by the user. (also disables ctrl+c unfortunately)
     disable_echo(&orig_tios);
 
     SmartConsole::Console console{"$register, $exit, $getlist, $getlog"};
     SmartConsole::Clear(std::cout);
+    // Create initial messages
 #if PHASE == 1
     console.messages.emplace_back("Welcome to Chat App!");
     console.messages.emplace_back("To get started, please enter the server IP Address.");
@@ -22,25 +25,28 @@ int main() {
     console.messages.emplace_back("Welcome to Chat App!");
     console.messages.emplace_back("To get started, use the $register command to register your username with the server.");
 #endif
-//    for(int i = 0; i < 30; ++i) {
-//        console.messages.emplace_back("To get started, use the $register command to register your username with the server.");
-//    }
+    // initialize console size
     console.update_console_size();
+    // create thread vars
     std::thread renderer_thread = console.initialize_renderer();
     std::thread input_capture_thread = console.initialize_input_capture();
     std::thread client_thread;
+    // create client vars
     ClientServerChatApp::Client client{&console};
     std::string username;
     bool registered = false;
     std::string ip_address;
     std::string port;
 #if PHASE == 1
+    // user input validation
     std::regex ip_regex{"(([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])\\.){3}([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])"};
     std::regex port_regex{"([1-9][0-9]{0,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5])"};
 #endif
     while(!console.shutdown.load()) {
+        // receive user input
         auto user_msg = console.ring_buffer.rx();
 #if PHASE == 1
+        // Collect IP address info
         if (ip_address.empty()) {
             if(std::regex_match(user_msg, ip_regex)) {
                 ip_address = user_msg;
@@ -55,6 +61,7 @@ int main() {
             }
             continue;
         }
+        // Collect port information
         if (port.empty()) {
             if(std::regex_match(user_msg, port_regex)) {
                 port = user_msg;
@@ -70,6 +77,7 @@ int main() {
             continue;
         }
 #endif
+        // Begin registration
         if (!registered) {
             if (!user_msg.starts_with(ClientServerChatApp::Commands::REGISTER())) {
                 UniqueLock lock{console.messages_mtx};
@@ -88,10 +96,11 @@ int main() {
             registered = client.sync_registered.retrieve();
         }
 
+        // at this point client is registered so begin echoing user input to server
         client.send_buffer.tx(user_msg);
     }
 
-
+    // initiate shutdown
     client_thread.join();
     renderer_thread.join();
     input_capture_thread.join();
@@ -104,11 +113,12 @@ int main() {
 void disable_echo(struct termios* orig) {
     struct termios tios;
     memcpy(&tios, orig, sizeof tios);
+    // commented lines were for testing options
 //    tios.c_iflag &=
 //        ~(IGNBRK | BRKINT | PARMRK | ISTRIP | INLCR | IGNCR | ICRNL | IXON);
 //    tios.c_oflag &= ~OPOST;
 //    tios.c_lflag = ~(ECHO | ECHONL | ICANON | ISIG | IEXTEN);
-    tios.c_lflag = 0;
+    tios.c_lflag = 0; // disables echoing and canonical user input
 //    tios.c_cflag &= ~(CSIZE | PARENB);
 //    tios.c_cflag |= CS8;
 //    tios.c_cc[VMIN] = 0;

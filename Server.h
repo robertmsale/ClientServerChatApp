@@ -27,6 +27,7 @@ namespace ClientServerChatApp {
         SocketSignal start_listening(std::string port);
         static constexpr int MAX_USERS() {return 10;};
     public:
+        /// Vector of file descriptors representing accepted client sockets
         std::vector<int> client_sockets;
         void broadcast(std::string message);
         explicit Server(SmartConsole::Console* _console);

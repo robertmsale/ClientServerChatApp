@@ -88,6 +88,13 @@ namespace SmartConsole {
         const char TCC = 'w';
         const char VTL = 'x';
     }
+    // All the functions here have been rewritten to use std::ostream
+    // instead of std::cout so that I can pass in a std::stringstream.
+    // I did this because I wanted the rendering system to generate all the
+    // characters without touching stdout, then insert all the characters
+    // at the very end. This way the cursor does not move around as much.
+    // Then after insertion flush the buffer, so it appears interactive.
+
     void SetFGColor(std::ostream& ss, FGColor color);
     void SetBGColor(std::ostream& ss, BGColor color);
     void SetColorFMT(std::ostream& ss, Decorations c);

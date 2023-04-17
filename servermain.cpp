@@ -5,6 +5,7 @@
 #include "Console.h"
 #include "Commands.h"
 #include "Server.h"
+#include "Logger.h"
 
 void disable_echo(struct termios* orig);
 
@@ -16,11 +17,13 @@ int main(int argc, char** argv) {
                      "\t\tserver 12345 messages.log\n" << std::endl;
         return 0;
     }
+    if (argc == 3) {
+        Utilities::logger_file_path = std::string{argv[2]};
+    }
     struct termios orig_tios;
     tcgetattr(STDIN_FILENO, &orig_tios);
     disable_echo(&orig_tios);
     std::string port{argv[1]};
-//    std::string logFile{argc == 3 ? "messages.log" : argv[2]};
     SmartConsole::Clear(std::cout);
     SmartConsole::Console console{"$exit"};
     ClientServerChatApp::Server server(&console);

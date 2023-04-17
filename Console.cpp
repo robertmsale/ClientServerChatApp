@@ -5,6 +5,7 @@
 
 #pragma region OldSmartConsoleCode
 void SetGraphicsRendition(std::ostream& ss, const int *rg, int size, char terminator = 'm') {
+    // ESC[<...values;><terminator>
     ss << (char)0x1b << '[';
     int i = 0;
     while (size > 0) {
@@ -57,6 +58,7 @@ void SmartConsole::SetCharacterSet(std::ostream& ss, char s) {
 }
 
 void SmartConsole::Clear(std::ostream& ss) {
+    // clears console and sets cursor to top left corner
     ss << "\x1b[2J\x1b[H";
 }
 void SmartConsole::ResetFormat(std::ostream& ss) {
@@ -64,6 +66,8 @@ void SmartConsole::ResetFormat(std::ostream& ss) {
 }
 
 void SmartConsole::GetTerminalSize(int &width, int &height) {
+    // This was written to work on Windows and Linux
+    // for this project it's commented out and not used
 //#ifdef TIOCGSIZE
 //    struct ttysize ts;
 //    ioctl(STDIN_FILENO, TIOCGSIZE, &ts);
@@ -91,6 +95,7 @@ void SmartConsole::PrintPretty(std::ostream& ss, char *message, int x, int y, in
 }
 
 void SmartConsole::ReadKey(char *output) {
+    // Essentially unused in this project
 //#if defined(_WIN32)
 //    HANDLE hInput = GetStdHandle(STD_INPUT_HANDLE);
 //    DWORD NumInputs = 0;
@@ -116,6 +121,7 @@ void SmartConsole::ReadKey(char *output) {
 }
 
 char *SmartConsole::ReadLine() {
+    // went a different route for chat app
     char* output = new char[SocketMaxMessageSize()];
     std::cin.getline(output, SocketMaxMessageSize());
     std::cin.clear();
@@ -123,9 +129,11 @@ char *SmartConsole::ReadLine() {
     return output;
 }
 void SmartConsole::SaveCursorPosition(std::ostream& ss) {
+    // doesn't work like expected
     ss << "\x1b[s";
 }
 void SmartConsole::RestoreCursorPosition(std::ostream& ss) {
+    // doesn't work like expected
     ss << "\x1b[u";
 }
 
@@ -186,6 +194,8 @@ int SmartConsole::InitializeTerminal() {
 
 
 void SmartConsole::InitializeTerminal() {
+    // Enables unicode for printing emojis & other symbols in terminal
+    // not used in ChatApp
     char* locale = setlocale(LC_ALL, "");
     std::locale lollocale(locale);
     setlocale(LC_ALL, locale);
@@ -203,6 +213,7 @@ namespace SmartConsole {
 #pragma region Console::
 #pragma region ComputedProperties
     int Console::msg_window_size() const {
+        // console height, subtract title height and height of the commands row and input row
         return (int)console_height() - (int)title_height() - 3;
     }
     int Console::console_width() const {
@@ -216,11 +227,15 @@ namespace SmartConsole {
 #pragma endregion
 #pragma region LayoutMethods
     void Console::update_console_size() {
+        // reads stdin file descriptor to get the size of the terminal
         struct ttysize ts;
         ioctl(STDIN_FILENO, TIOCGSIZE, &ts);
         auto width = ts.ts_cols;
         auto height = ts.ts_lines;
         if (width != console_width() || height != console_height()) {
+            // coerced to 60x20 because some applications such as CLion
+            // use special terminal windows that do not report their size
+            // properly
             _console_width.store(std::max((int)width, 60));
             _console_height.store(std::max((int)height, 20));
             _refresh_layout.store(true);
@@ -229,46 +244,92 @@ namespace SmartConsole {
 #pragma endregion
 #pragma region DrawMethods
     void Console::draw_title() {
+        // find center
         size_t center_x = console_width() / 2;
+        // find left-most column
         size_t left = center_x - title_width() / 2;
+        // loop through rows
         for (size_t y = 0; y < title_height(); y++) {
+            // loop through columns
             for (size_t x = 0; x < title_width(); x++) {
+                // Set cursor to left-most column of current row
                 SetCursorPosition(ss, left + x, y);
+                // first print the graphics rendition, then actual char of title
                 ss << title_mask()[y][x] << title()[y][x];
             }
         }
+        // Clear graphics rendition so next phase of rendering doesn't have incorrect colors
         SmartConsole::ResetFormat(ss);
     }
 
     void Console::draw_message_window() {
+        // Move cursor to top-left corner of where window will be printed
         SmartConsole::SetCursorPosition(ss, 0, (int)title_height());
-        SmartConsole::SetCharacterSet(ss, SmartConsole::CharacterSet::LineDraw);
+        SmartConsole::SetCharacterSet(ss, SmartConsole::CharacterSet::LineDraw); // draw lines
+        // ┌─░
         ss << SmartConsole::Line::CTL << SmartConsole::Line::HRL;
-        SmartConsole::SetCharacterSet(ss, SmartConsole::CharacterSet::ASCII);
+        SmartConsole::SetCharacterSet(ss, SmartConsole::CharacterSet::ASCII); // back to ASCII
+        // ┌─ Messages ░
         ss << " Messages ";
-        SmartConsole::SetCharacterSet(ss, SmartConsole::CharacterSet::LineDraw);
+        SmartConsole::SetCharacterSet(ss, SmartConsole::CharacterSet::LineDraw); // back to lines
+        // ┌─ Messages ───────────░
         for (int i = 0; i < console_width() - 13; i++) {
             ss << SmartConsole::Line::HRL;
         }
+        // ┌─ Messages ───────────┐
+        // ░
         ss << SmartConsole::Line::CTR;
+        // ┌─ Messages ───────────┐
+        // │                      │
+        // │                      │
+        // ░
         for (int i = 0; i < std::max((int)(console_height() - title_height() - 3), 0); ++i) {
             ss << SmartConsole::Line::VTL << "\x1b[" << console_width() << 'G' << SmartConsole::Line::VTL;
         }
+        // ┌─ Messages ───────────┐
+        // │                      │
+        // │                      │
+        // └░
         ss << SmartConsole::Line::CBL;
+        // ┌─ Messages ───────────┐
+        // │                      │
+        // │                      │
+        // └──────────────────────░
         for (int i = 0; i < console_width()-2; ++i) {
             ss << SmartConsole::Line::HRL;
         }
+        // ┌─ Messages ───────────┐
+        // │                      │
+        // │                      │
+        // └──────────────────────┘
+        // ░
         ss << SmartConsole::Line::CBR;
         SmartConsole::SetCharacterSet(ss, SmartConsole::CharacterSet::ASCII);
         SmartConsole::SetFGColor(ss, SmartConsole::FGColor::BrightBlue);
+        // ┌─ Messages ───────────┐
+        // │                      │
+        // │                      │
+        // └──────────────────────┘
+        // ~~ Commands: $exit, etc.
+        // ░
         ss << "~~ Commands: " << _commands;
         SmartConsole::ResetFormat(ss);
     }
 
     void Console::draw_messages() {
         int scroll_pos = _message_window_scroll_position.load();
+        // ┌─ Messages ───────────┐
+        // │░                     │
+        // │                      │
+        // └──────────────────────┘
+        // ~~ Commands: $exit, etc.
         SmartConsole::SetCursorPosition(ss, 3, (int)title_height() + 1);
         int message_window_height = msg_window_size();
+        // ┌─ Messages ───────────┐
+        // │<user>: Ayyy          │
+        // │<user>: :)░           │
+        // └──────────────────────┘
+        // ~~ Commands: $exit, etc.
         for (int i = 0; i < message_window_height; ++i) {
             if (i + scroll_pos > messages.size()) break;
             if (messages[i + scroll_pos].starts_with("[INFO]:")) {
@@ -283,7 +344,7 @@ namespace SmartConsole {
         }
     }
 
-        void Console::draw_scroll_bar() {
+    void Console::draw_scroll_bar() {
         int msg_win_height = msg_window_size()-2;
         int scroll_pos = _message_window_scroll_position.load();
         int max_scroll_pos = std::max((int)messages.size() - msg_win_height, 0);
@@ -291,10 +352,24 @@ namespace SmartConsole {
         int top_of_msg_win = (int)title_height()+2;
         int top_of_bar = (int)std::lerp((float)(top_of_msg_win), (float)(top_of_msg_win + msg_win_height - bar_height), (float)scroll_pos / ((float)max_scroll_pos));
         SmartConsole::SetBGColor(ss, SmartConsole::BGColor::BrightBlack);
+        // ┌─ Messages ───────────┐
+        // │<user>: Ayyy          │
+        // │<user>: :)           ░│
+        // │<user>: :)           ░│
+        // │<user>: :)           ░│
+        // │<user>: :)            │
+        // └──────────────────────┘
         for(int i = 0; i < bar_height; ++i) {
             SmartConsole::SetCursorPosition(ss, console_width()-1, top_of_bar + i);
             ss << ' ';
         }
+        // ┌─ Messages ───────────┐
+        // │<user>: Ayyy         ◆│
+        // │<user>: :)           ░│
+        // │<user>: :)           ░│
+        // │<user>: :)           ░│
+        // │<user>: :)           ◆│
+        // └──────────────────────┘
         SmartConsole::SetCharacterSet(ss, SmartConsole::CharacterSet::LineDraw);
         SmartConsole::SetCursorPosition(ss, console_width()-1, top_of_msg_win-1);
         ss << (char)96;
@@ -328,8 +403,21 @@ namespace SmartConsole {
     }
 
     void Console::run_renderer(Console* console) {
+        std::thread window_size_checker{[&]{
+            int window_width = -1;
+            int window_height = -1;
+            while(!console->shutdown.load()) {
+                console->update_console_size();
+                if (console->console_width() != window_width || console->console_height() != window_height) {
+                    window_width = console->console_width();
+                    window_height = console->console_height();
+                    console->refresh_text.resolve(true);
+                }
+                std::this_thread::sleep_for(std::chrono::seconds(1));
+            }
+        }};
         while(!console->shutdown.load()) {
-            console->update_console_size();
+            // check if layout needs updating
 //            if (console->console_height() <= 0) continue;
 //            if (console->_refresh_layout.load()) {
                 SmartConsole::Clear(console->ss);
@@ -337,56 +425,98 @@ namespace SmartConsole {
                 console->draw_message_window();
 //                console->_refresh_layout.store(false);
 //            }
+            // lock and deal with messages
             console->messages_mtx.lock();
+            // if scrolled to the bottom keep it that way
             if (console->_message_window_autoscroll.load()) {
+                // always make sure scroll position is at the bottom if autoscroll is enabled
                 console->_message_window_scroll_position.store(std::max((int)console->messages.size() - (console->console_height() - (int)title_height() - 4), 0));
             }
 //            console->clear_message_window();
             console->draw_scroll_bar();
             console->draw_messages();
             console->messages_mtx.unlock();
+
+            // ┌─ Messages ───────────┐
+            // │<user>: Ayyy          │
+            // │<user>: :)            │
+            // └──────────────────────┘
+            // ~~ Commands: $exit, etc.
+            // ░
             SmartConsole::SetCursorPosition(console->ss, 1, console->console_height());
+            // ┌─ Messages ───────────┐
+            // │<user>: Ayyy          │
+            // │<user>: :)            │
+            // └──────────────────────┘
+            // ~~ Commands: $exit, etc.
+            // > whatever user has already typed░
             SmartConsole::SetFGColor(console->ss, SmartConsole::FGColor::Green);
             console->ss << ">\x1b[" << strlen(console->buffer) << "C";
+            // Clear graphics rendition
             SmartConsole::ResetFormat(console->ss);
+            // Now that the string stream is full of all the chars I want to insert into the
+            // terminal screen, insert all of it at once and flush the buffer
             std::cout << console->ss.str() << std::flush;
+            // Get a fresh stringstream so previous work isn't repeated
             console->ss = std::stringstream{};
+            // Wait for more input
             console->refresh_text.retrieve();
         }
+        window_size_checker.join();
     }
 
     void Console::run_input_capture(SmartConsole::Console *console) {
         while(!console->shutdown.load()) {
+            // only one char is ever captured, but keep extra available just incase.
             char buff[16];
+            // always clear that buffer
             memset(buff, 0, 16);
+            // read stdin file descriptor and output results to buffer
             read(STDIN_FILENO, &buff, 16);
             if (buff[0] == (char)127) { // backspace
+                // do nothing if buffer is empty
                 if (console->buff_position == 0) continue;
+                // set current char to null and move position backwards
                 console->buffer[--console->buff_position] = '\0';
             } else if(buff[0] == '\n') { // new line
+                // do nothing if buffer is empty
                 if (strlen(console->buffer) == 0) continue;
+                // if user types exit, begin graceful shutdown for all threads
                 if (strcmp(console->buffer, "$exit") == 0) {
-
                     console->shutdown.store(true);
                     console->refresh_text.resolve(true);
                 }
+                // pass char buffer into ring buffer queue to be processed by main thread
                 console->ring_buffer.tx(std::string{console->buffer});
+                // reset buffer position to zero
                 console->buff_position = 0;
+                // zero out char buffer
                 memset(console->buffer, 0, SocketMaxMessageSize());
-            } else if (buff[0] >= ' ' && buff[0] <= '~') {
+            } else if (buff[0] >= ' ' && buff[0] <= '~') { // if char is a displayable ASCII character
+                // copy temp buffer to the end of console buffer and increment position
                 strcpy(console->buffer + (console->buff_position++), buff);
             } else if (strcmp(buff, "\x1b[A") == 0) { // up arrow
+                // scrolling up always disables autoscroll
                 console->_message_window_autoscroll.store(false);
+                // can't scroll passed zero
                 if (console->_message_window_scroll_position.load() == 0) continue;
+                // subtract 1 from scroll position
                 atomic_fetch_sub(&console->_message_window_scroll_position,1);
+                // tell renderer to refresh screen
                 console->refresh_text.resolve(true);
             } else if (strcmp(buff, "\x1b[B") == 0) { // down arrow
+                // if already at the bottom, do nothing
                 if (console->_message_window_autoscroll.load()) continue;
+                // bottom of message window should have last message
                 auto end = console->messages.size() - (console->msg_window_size());
+                // add to scroll position
                 auto pos = atomic_fetch_add(&console->_message_window_scroll_position,1);
+                // if the position will display the latest message, turn on autoscroll
                 if (pos == end) console->_message_window_autoscroll.store(true);
+                // tell renderer to refresh screen
                 console->refresh_text.resolve(true);
             }
+            // TODO: Make sure this isn't competing with renderer
             SmartConsole::ResetFormat(std::cout);
             std::cout << "\x1b[" << console->console_height() << ";3H\x1b[" << console->console_width() << "P" << console->buffer << std::flush;
         }
