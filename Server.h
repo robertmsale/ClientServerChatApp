@@ -29,7 +29,15 @@ namespace ClientServerChatApp {
     public:
         /// Vector of file descriptors representing accepted client sockets
         std::vector<int> client_sockets;
+        /**
+         * Sends message to all connected clients
+         * @param message
+         */
         void broadcast(std::string message);
+        /**
+         * Constructs the Server object
+         * @param _console to handle rendering to the screen
+         */
         explicit Server(SmartConsole::Console* _console);
         std::map<int, std::string> users;
         std::thread initialize_server(std::string port);

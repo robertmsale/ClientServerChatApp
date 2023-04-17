@@ -46,8 +46,12 @@ namespace ClientServerChatApp {
     SocketSignal Client::send_msg(std::string _message) {
         // Establish and confirm message size
         auto size = (SocketSizeType)_message.size();
+        // define return value
         auto rv = SocketSignal::SUCCESS;
+        // ensure that return value is stored as active signal when returning
         Utilities::DeferExec defer{[&] {active_signal.store(rv);}};
+
+        // You tried!
         if (size == 0 || _message.size() > SocketMaxMessageSize()) {
             UniqueLock lock{console->messages_mtx};
             console->messages.emplace_back("[ERROR]: Message too long to send.");

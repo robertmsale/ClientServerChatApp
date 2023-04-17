@@ -3,6 +3,14 @@
 ___
 This is a *nix implementation of Computer Networking Chat App Project
 
+#### Rubric code
+* `SocketEntity.h/cpp` Shared socket logic between client and server
+* `Client.h/cpp` Client socket logic
+* `Server.h/cpp` Server socket logic
+* `Logger.h/cpp` Logging messages to file
+
+All other sources tie the project together but don't necessarily deal with sockets.
+
 ## Dependencies
 
 This project requires the following dependencies for successful build:
@@ -23,7 +31,7 @@ From the same directory as this README, execute:
 ./build-and-start.sh # [build folder] [session name] <- optionals
 ```
 
-This will build the project using CMake and fire up a tmux session with 1 server and 2 client panes automatically. It also enables mouse control for tmux to make it *even easier* 😁 also by running this script, if you detach `CTRL+b d` from the session it will automatically kill the session for you.
+This will build the project using CMake and fire up a tmux session with 1 server (port 33420) and 2 client panes automatically. It also enables mouse control for tmux to make it *even easier* 😁 also by running this script, if you detach `CTRL+b d` from the session it will automatically kill the session for you. 
 
 If `tmux` is not installed it will skip that part entirely.
 
@@ -38,4 +46,8 @@ cmake --build ./ --target all -j 4 # or however many number of CPU cores you wan
 
 ## IMPORTANT NOTE
 
-Because this program disables echo and canonical input on stdin, using `CTRL+C` does not work, so running these in their own tmux session is highly recommended so you can `CTRL+b x y` to terminate the program in case a deadlock occurs.
+Because this program disables echo and canonical input on stdin, using `CTRL+C` does not work, so running these in their own tmux session is highly recommended so you can `CTRL+b x y` to terminate the program in case a deadlock occurs. Or if running from the convenient build script just detaching will kill the processes.
+
+## Special Considerations
+
+In `pch.h` there is `using SocketSizeType = char;`. What's special about this is if you change it to another integer type it will automatically alter the TCP send and receive methods in the client and the server. Currently the max message size is 255 because it's a `char`, but setting it to `short` will raise the max message size to 65535 and the partial message loop will read two bytes instead of just one 🤓.

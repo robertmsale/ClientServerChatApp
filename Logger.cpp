@@ -14,6 +14,7 @@
 namespace Utilities {
     std::string logger_file_path{LOGGER_FILE_SECRET_HASH};
     void log(std::string message) {
+        // default file is /tmp/chatapp<current date/time>.log
         if (logger_file_path == LOGGER_FILE_SECRET_HASH) {
             std::time_t t = std::time(nullptr);
             std::tm* now = std::localtime(&t);

@@ -4,6 +4,7 @@
 
 #include "Server.h"
 #include "Commands.h"
+#include "Logger.h"
 
 namespace ClientServerChatApp {
     void Server::run_server(Server* server, std::string port) {
@@ -118,10 +119,10 @@ namespace ClientServerChatApp {
                             continue;
                         }
                         if (received.starts_with(Commands::GET_LIST())) {
-
+                            // TODO: Implement $getlist in the server
                         }
                         if (received.starts_with(Commands::GET_LOG())) {
-
+                            // TODO: Implement $getlog in the server
                         }
                         auto message = std::string(users[client_sockets[i]] + ": " + received);
                         console->push_message(message);
@@ -135,6 +136,7 @@ namespace ClientServerChatApp {
     }
 
     void Server::broadcast(std::string message) {
+        Utilities::log(message);
         for (auto client : client_sockets) {
             auto size = (SocketSizeType)message.size();
             send(client, &size, sizeof size, 0);

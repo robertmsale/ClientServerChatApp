@@ -85,6 +85,7 @@ int main() {
                 console.refresh_text.resolve(true);
                 continue;
             }
+            username = user_msg.substr(10);
             client_thread = client.initialize_client();
             client.sync_ip_address.resolve(ip_address);
             client.sync_port.resolve(port);
@@ -94,6 +95,7 @@ int main() {
             res = client.sync_socket_established.retrieve();
             if (!res) continue;
             registered = client.sync_registered.retrieve();
+            continue;
         }
 
         // at this point client is registered so begin echoing user input to server

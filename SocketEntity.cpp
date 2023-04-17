@@ -34,7 +34,7 @@ namespace ClientServerChatApp {
             }
             case -1: {
                 UniqueLock lock{console->messages_mtx};
-                console->messages.emplace_back("[INFO]:  Disconnecting.");
+                console->messages.emplace_back("[INFO]: Disconnecting.");
                 console->refresh_text.resolve(true);
                 rv = SocketSignal::DISCONNECT;
                 break;
