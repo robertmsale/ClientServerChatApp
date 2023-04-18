@@ -9,7 +9,7 @@
 
 namespace ClientServerChatApp {
     /**
-     * The various signals which might occur using the socket
+     * The various signals which might occur using the Socket
      */
     enum class SocketSignal {
         SUCCESS, SHUTDOWN, DISCONNECT, BIND_ERROR, CONNECT_ERROR, SETUP_ERROR,
@@ -43,23 +43,23 @@ namespace ClientServerChatApp {
          * The Socket established by the client (int for file descriptor)
          */
         SocketFileDescriptor io;
-        /// This gets set after each socket message
+        /// This gets set after each Socket message
         std::atomic<SocketSignal> active_signal;
 
-        /// Child thread sends socket created successful, main receives it
+        /// Child thread sends Socket created successful, main receives it
         SyncPoint<bool> sync_socket_created;
-        /// Child thread sends socket connection successful, main receives it
+        /// Child thread sends Socket connection successful, main receives it
         SyncPoint<bool> sync_socket_established;
 
         SocketEntity();
         ~SocketEntity();
         /**
-         * Checks file descriptor and returns whether the socket was created successfully or not
+         * Checks file descriptor and returns whether the Socket was created successfully or not
          * @return
          */
         [[nodiscard]] bool socket_created() const;
         /**
-         * Manually create socket.
+         * Manually create Socket.
          */
         SocketSignal create_socket();
     private:

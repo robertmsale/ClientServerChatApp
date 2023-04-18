@@ -15,7 +15,7 @@ namespace ClientServerChatApp {
         Utilities::DeferExec defer{[&]() {active_signal.store(rv);}};
         if (io < 0) {
             UniqueLock lock{console->messages_mtx};
-            console->messages.emplace_back("[ERROR]: Failed to create socket.");
+            console->messages.emplace_back("[ERROR]: Failed to create Socket.");
             console->refresh_text.resolve(true);
             rv = SocketSignal::STARTUP_ERROR;
         }

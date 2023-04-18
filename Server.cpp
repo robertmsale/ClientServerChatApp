@@ -9,7 +9,7 @@
 namespace ClientServerChatApp {
     void Server::run_server(Server* server, std::string port) {
         if (server->create_socket() != SocketSignal::SUCCESS) {
-            server->console->push_message("[ERROR]: Failed to create socket");
+            server->console->push_message("[ERROR]: Failed to create Socket");
             server->sync_socket_created.resolve(false);
             return;
         }
@@ -23,7 +23,7 @@ namespace ClientServerChatApp {
         auto signal = SocketSignal::SUCCESS;
         Utilities::DeferExec defer{[&] {active_signal.store(signal);}};
 //        if (setsockopt(io, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof opt)) {
-//            console->push_message("[ERROR]: Failed to set socket options.");
+//            console->push_message("[ERROR]: Failed to set Socket options.");
 //            signal = SocketSignal::BIND_ERROR;
 //            return signal;
 //        }
@@ -67,7 +67,7 @@ namespace ClientServerChatApp {
             if (FD_ISSET(io, &readfds)) {
                 auto client_socket = accept(io, nullptr, nullptr);
                 if (client_socket < 0) {
-                    console->push_message("[ERROR]: Failed to accept client socket.");
+                    console->push_message("[ERROR]: Failed to accept client Socket.");
                     signal = SocketSignal::ACCEPT_ERROR;
                     continue;
                 }

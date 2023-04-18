@@ -29,6 +29,7 @@
 #include <unistd.h>
 #include <vector>
 #include <map>
+#include <optional>
 #include "RingBuffer.h"
 #include "DeferExec.h"
 
@@ -38,12 +39,12 @@
 using UniqueLock = std::unique_lock<std::mutex>;
 
 /**
- * The data type used by POSIX to describe the socket for clarity
+ * The data type used by POSIX to describe the Socket for clarity
  */
 using SocketFileDescriptor = int;
 
 /**
- * Data type of the socket size. This determines how large the initial message size part of the message will be.
+ * Data type of the Socket size. This determines how large the initial message size part of the message will be.
  */
 using SocketSizeType = char;
 

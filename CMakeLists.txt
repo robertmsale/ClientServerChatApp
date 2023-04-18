@@ -20,13 +20,17 @@ set(CLIENT_SRCS clientmain.cpp Client.cpp Client.h Logger.cpp Logger.h)
 # Server only sources
 set(SERVER_SRCS servermain.cpp Server.cpp Server.h Logger.cpp Logger.h)
 
+add_subdirectory(libsocket)
+
 # create client executable
 add_executable(client ${CLIENT_SRCS} ${SHARED_SRCS})
 # insert precompiled header into client sources
 target_precompile_headers(client PUBLIC pch.h)
+target_link_libraries(client PUBLIC libsocket)
 
 
 # create server executable
 add_executable(server ${SERVER_SRCS} ${SHARED_SRCS})
 # insert precompiled header into server sources
 target_precompile_headers(server PUBLIC pch.h)
+target_link_libraries(server PUBLIC libsocket)

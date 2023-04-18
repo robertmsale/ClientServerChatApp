@@ -96,7 +96,7 @@ namespace ClientServerChatApp {
     }
 
     void Client::run_client(Client* client) {
-        // Try to create socket
+        // Try to create Socket
         if (client->create_socket() != SocketSignal::SUCCESS) {
             client->sync_socket_created.resolve(false);
             return;

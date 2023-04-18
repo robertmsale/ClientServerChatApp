@@ -28,7 +28,7 @@ namespace ClientServerChatApp {
         explicit Client(SmartConsole::Console* _console);
         ~Client();
         /**
-         * Connects the socket to the server. Make sure the socket has been created before connecting.
+         * Connects the Socket to the server. Make sure the Socket has been created before connecting.
          * @param _to IP address of server
          * @param _port Port number of server
          * @return Signal result of attempted connection
