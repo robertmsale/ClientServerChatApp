@@ -3,35 +3,43 @@
 //
 #pragma once
 
+#include "DeferExec.h"
+#include "RingBuffer.h"
+#include "libsocket/Errors.h"
+#include "libsocket/Socket.h"
 #include <algorithm>
-#include <arpa/inet.h>
 #include <atomic>
 #include <condition_variable>
 #include <cstddef>
 #include <cstdio>
+#include <functional>
 #include <future>
+#include <initializer_list>
 #include <iostream>
 #include <limits>
+#include <map>
+#include <memory>
 #include <mutex>
-#include <netdb.h>
-#include <netinet/in.h>
+#include <optional>
 #include <queue>
 #include <regex>
 #include <set>
 #include <sstream>
 #include <string>
-#include <sys/ioctl.h>
-#include <sys/socket.h>
-#include <sys/types.h>
 #include <termios.h>
 #include <thread>
 #include <type_traits>
-#include <unistd.h>
 #include <vector>
-#include <map>
-#include <optional>
-#include "RingBuffer.h"
-#include "DeferExec.h"
+
+// unix includes
+#include <unistd.h>
+#include <cerrno>
+#include <netdb.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <sys/ioctl.h>
+#include <sys/socket.h>
+#include <sys/types.h>
 
 /**
  * Much needed shortcut for unique_locks
@@ -61,3 +69,7 @@ constexpr size_t SocketMaxMessageSize() {
     return size;
 }
 
+using MessageSignalType = std::string;
+namespace MessageSignals {
+    constexpr MessageSignalType SRV_FULL() {return "SRV_FULL";}
+}

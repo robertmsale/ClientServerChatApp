@@ -11,10 +11,11 @@ namespace ClientServerChatApp {
     /**
      * Client object encapsulating the low level functionality of dealing with sockets
      */
-    class Client: public SocketEntity {
+    class Client: public LibSocket::ClientSocket<SocketSizeType> {
     private:
         static void run_client(Client* client);
     public:
+        SmartConsole::Console* console;
         /// Main thread sends ip address, client thread receives it
         SyncPoint<std::string> sync_ip_address;
         /// Main thread sends port, client thread receives it
@@ -23,28 +24,13 @@ namespace ClientServerChatApp {
         SyncPoint<std::string> sync_username;
         /// Client thread sends registration results, main receives it
         SyncPoint<bool> sync_registered;
+        /// Child thread sends Socket created successful, main receives it
+        SyncPoint<bool> sync_socket_created;
+        /// Child thread sends Socket connection successful, main receives it
+        SyncPoint<bool> sync_socket_established;
         /// Ring buffer for outgoing messages
         Utilities::RingBuffer<std::string> send_buffer;
         explicit Client(SmartConsole::Console* _console);
-        ~Client();
-        /**
-         * Connects the Socket to the server. Make sure the Socket has been created before connecting.
-         * @param _to IP address of server
-         * @param _port Port number of server
-         * @return Signal result of attempted connection
-         */
-        SocketSignal connect_to_server(std::string _to, std::string _port);
-        /**
-         * Sends a message to the server
-         * @param _message string message
-         * @return Signal result of attempted send
-         */
-        SocketSignal send_msg(std::string _message);
-        /**
-         * Receives a message from the server
-         * @return Signal and string message received from server
-         */
-        ReceiveMessage recv_msg();
         /**
          * Initialize client on separate thread
          * @return thread handle

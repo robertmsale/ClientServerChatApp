@@ -8,8 +8,6 @@ set(SRCS
         Socket.cpp
         Socket.h
         Errors.h
-        pch.h
         )
 
 add_library(libsocket ${SRCS})
-target_precompile_headers(libsocket PUBLIC pch.h)

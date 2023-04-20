@@ -31,6 +31,7 @@ int main(int argc, char** argv) {
     std::thread renderer = console.initialize_renderer();
     std::thread input_capturer = console.initialize_input_capture();
     std::thread server_thread = server.initialize_server(port);
+    while (!console.shutdown.load()) std::this_thread::sleep_for(std::chrono::seconds(2));
     server_thread.join();
     console.shutdown.store(true);
     console.refresh_text.resolve(true);

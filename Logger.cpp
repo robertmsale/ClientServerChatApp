@@ -35,7 +35,7 @@ namespace Utilities {
             logger_file_path = ss.str();
         }
         std::fstream fs{logger_file_path, std::ios_base::app | std::ios_base::out};
-        fs << message;
+        fs << message << '\n';
         fs.close();
     }
 } // Utilities

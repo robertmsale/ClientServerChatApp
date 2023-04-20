@@ -13,6 +13,7 @@ set(SHARED_SRCS
         Console.h
         SyncPoint.h
         RingBuffer.h
+        pch.h
         )
 
 # Client only sources

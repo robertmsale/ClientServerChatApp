@@ -16,10 +16,6 @@ namespace ClientServerChatApp {
         STARTUP_ERROR, ADDRESS_ERROR, PARAMETER_ERROR, MESSAGE_ERROR, CONTINUE,
         SELECT_ERROR, ACCEPT_ERROR, LISTEN_ERROR
     };
-    using MessageSignalType = std::string;
-    namespace MessageSignals {
-        constexpr MessageSignalType SRV_FULL() {return "SRV_FULL";}
-    }
     /**
       * For receiving messages
       */
@@ -45,11 +41,6 @@ namespace ClientServerChatApp {
         SocketFileDescriptor io;
         /// This gets set after each Socket message
         std::atomic<SocketSignal> active_signal;
-
-        /// Child thread sends Socket created successful, main receives it
-        SyncPoint<bool> sync_socket_created;
-        /// Child thread sends Socket connection successful, main receives it
-        SyncPoint<bool> sync_socket_established;
 
         SocketEntity();
         ~SocketEntity();

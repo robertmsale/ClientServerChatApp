@@ -6,10 +6,17 @@
 #define CLIENTSERVERCHATAPP_SOCKET_H
 
 #include "Errors.h"
-#include "Address.h"
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+#include <vector>
+#include <functional>
+#include <map>
+#include <initializer_list>
+#include <string>
+#include <regex>
 
 namespace LibSocket {
-    using SocketFileDescriptor = int;
     enum class SocketFamily {
         /// Local communication
         UNIX = AF_UNIX,
@@ -23,7 +30,7 @@ namespace LibSocket {
         IPX = AF_IPX,
         /// AppleTalk
         APPLETALK = AF_APPLETALK,
-//        /// ITU-T X.25 / ISO-8208 protocol
+//        /// ITU-SizeType X.25 / ISO-8208 protocol
 //        X25 = AF_X25,
         /// IPv6 Internet protocols
         INET6 = AF_INET6,
@@ -173,7 +180,13 @@ namespace LibSocket {
              terminated, if MSG_PEEK was specified, or
              if an error is pending for the socket.
          */
-        WAIT_ALL = MSG_WAITALL
+        WAIT_ALL = MSG_WAITALL,
+        /**
+         * Enables nonblocking operation; if the operation would block, the call fails
+         * with the error EAGAIN or EWOULDBLOCK (this can also be enabled using the
+         * O_NONBLOCK flag with the F_SETFL fcntl(2)).
+         */
+        DONT_WAIT = MSG_DONTWAIT
     };
     const extern std::regex ipv4_regex;
     const extern std::regex ipv6_regex;
@@ -188,84 +201,34 @@ namespace LibSocket {
      * @details Every method has a error handler map. If you move lambdas
      * into the map they will be executed automatically. Makes code organization
      * a lot more intuitive.
+     * @tparam SizeType integral used to store the size of the message
      */
+    template<typename SizeType>
     class Socket {
+        static_assert(std::is_integral<SizeType>(), "SizeType must be an integral data type");
+    protected:
+        using SocketFileDescriptor = int;
+    public:
         /// File Descriptor for socket
         SocketFileDescriptor _fd{-1};
         /// If true, will close this socket in the destructor
         bool _auto_close;
-    public:
-        /// A map of every possible accept error and callback functions to run
-        std::map<SocketAcceptError, std::function<void()>> accept_handlers;
-        /**
-         * Extracts the first connection on the queue of pending connections and creates a socket
-         * @param address optional address
-         * @param len optional length of address
-         */
-        void accept(struct sockaddr* address, socklen_t* len);
-        void accept();
 
-        /// A map of every possible bind error and callback functions to run
-        std::map<SocketBindError, std::function<void()>> bind_handlers;
-        /**
-         *
-         * @param address
-         * @param address_len
-         */
-        void bind(const struct sockaddr* address, socklen_t address_len);
-        void bind(const struct sockaddr_in* address);
-        void bind(const struct sockaddr_in6* address);
-
-        /// A map of every possible connect error and callback functions to run
-        std::map<SocketConnectError, std::function<void()>> connect_handlers;
-        /**
-         * Connects socket to address (connection-mode sockets only)
-         * @param address the address struct
-         * @param address_len length of the sockaddr structure pointed to by address
-         */
-        void connect(const struct sockaddr* address, socklen_t address_len);
-        void connect(const struct sockaddr_in* address);
-        void connect(const struct sockaddr_in6* address);
-        /**
-         * Connects or binds socket conveniently using IPV4 or IPV6 syntax
-         * @param ip IP of the endpoint
-         * @param port port of the endpoint
-         * @param t IPType::V4 or IPType::V6
-         * @param out the resulting socket address
-         * @tparam T the sockaddr derived object
-         */
-        template<typename T>
-        void connect_bind_resolve(const std::string& ip, const std::string& port, IPType t, std::unique_ptr<T>& out) {
-            static_assert(std::is_base_of<T, struct sockaddr_in>::value || std::is_base_of<T, sockaddr_in6>::value,
-                    "T must be of type sockaddr_in or sockaddr_in6");
-            auto ip_validator = (Validator)t;
-            if (!validate(ip, ip_validator) && connect_handlers.contains(SocketConnectError::INVALID_ADDRESS)) {
-                connect_handlers[SocketConnectError::INVALID_ADDRESS]();
-                return;
-            }
-            if (!validate(port, Validator::PORT) && connect_handlers.contains(SocketConnectError::INVALID_PORT)) {
-                connect_handlers[SocketConnectError::INVALID_PORT]();
-                return;
-            }
-            out = T{};
-            if (std::is_base_of<T, struct sockaddr_in>::value) {
-                out->sin_family = (int)t;
-                out->sin_port = htons(stoi(port));
-                if (inet_pton((int)t, ip.c_str(), &out->sin_addr) <= 0 && connect_handlers.contains(SocketConnectError::INVALID_ADDRESS)) {
-                    connect_handlers[SocketConnectError::INVALID_ADDRESS]();
-                }
-            } else {
-                out->sin6_family = (int)t;
-                out->sin6_port = htons(stoi(port));
-                if (inet_pton((int)t, ip.c_str(), &out->sin6_addr) <= 0 && connect_handlers.contains(SocketConnectError::INVALID_ADDRESS)) {
-                    connect_handlers[SocketConnectError::INVALID_ADDRESS]();
-                }
-            }
-        }
+        Socket(): _auto_close{true}, _fd{-1} {}
+        explicit Socket(bool auto_close): _auto_close{auto_close}, _fd{-1} {}
+        ~Socket() { if (_auto_close) close(); }
 
         /// A map of every possible close error and callback functions to run
         std::map<SocketCloseError, std::function<void()>> close_handlers;
-        void close();
+        void close() {
+            auto result = ::close(_fd);
+            auto err = errno;
+            if (result == -1 && close_handlers.contains((SocketCloseError)err)) {
+                close_handlers[(SocketCloseError)err]();
+            } else if (close_handlers.contains(SocketCloseError::SUCCESS)) {
+                close_handlers[SocketCloseError::SUCCESS]();
+            }
+        }
 
         /// A map of every possible create error and callback functions to run
         std::map<SocketCreateError, std::function<void()>> create_handlers;
@@ -274,84 +237,141 @@ namespace LibSocket {
          * @param family The socket family used by the new socket (see LibSocket::SocketFamily for details)
          * @param type The type of socket (see LibSocket::Type for details)
          */
-        void create(SocketFamily family, Type type);
+        void create(SocketFamily family, Type type) {
+            _fd = ::socket((int)family, (int)type, 0);
+            auto err = errno;
+            if (_fd == -1 && create_handlers.contains((SocketCreateError)err)) {
+                create_handlers[(SocketCreateError)err]();
+            } else if (create_handlers.contains(SocketCreateError::SUCCESS)) {
+                create_handlers[SocketCreateError::SUCCESS]();
+            }
+        }
 
         /// A map of every possible receive error and callback functions to run
-        std::map<SocketReceiveError, std::function<void()>> receive_handlers;
+        std::map<SocketReceiveError, std::function<void(const std::string&, Socket*)>> receive_handlers;
         /**
          * Receive a message from the socket
          * @param buffer where the message will be stored
          * @param length of the message
          * @param flags see LibSocket::SocketReceiveFlags for more info (defaults to empty list)
          */
-        void receive(void* buffer, size_t length, std::initializer_list<SocketReceiveFlags> flags);
+        size_t receive(void* buffer, size_t length, std::initializer_list<SocketReceiveFlags> flags) {
+            int rflags = 0;
+            for (auto f : flags) rflags |= (int)f;
+            auto result = ::recv(_fd, buffer, length, rflags);
+            auto err = errno;
+            if (result == -1 && receive_handlers.contains((SocketReceiveError)err)) {
+                receive_handlers[(SocketReceiveError)err]("", this);
+            } else if (result == 0 && receive_handlers.contains(SocketReceiveError::DISCONNECTING)) {
+                receive_handlers[SocketReceiveError::DISCONNECTING]("", this);
+            } else if (receive_handlers.contains(SocketReceiveError::SUCCESS)) {
+                std::string message{(char*) buffer};
+                receive_handlers[SocketReceiveError::SUCCESS](message, this);
+            }
+            return result;
+        }
          /**
           * Receives a message
           * @tparam T integral used to determine the size of the message
           * @param flags see LibSocket::SocketReceiveFlags for more info (defaults to empty list)
           * @return string result of what was received
           */
-        template<typename T,
-                typename std::enable_if<std::is_integral<T>::value>
-                >
-        std::string receive(std::initializer_list<SocketSendFlags> flags) {
-            T size = 0;
-            receive(&size, sizeof size, flags);
+        std::string receive_str(std::initializer_list<SocketReceiveFlags> flags) {
+            SizeType size = 0;
+            int rflags{0};
+            for(auto f: flags) rflags |= (int)f;
+            auto res = ::recv(_fd, &size, sizeof size, rflags);
             char buff[size + 1];
             memset(buff, 0, size + 1);
-            receive(buff, size, flags);
+            this->receive(buff, size, flags);
             return {buff};
         }
 
         /// A map of every possible send error and callback functions to run
-        std::map<SocketSendError, std::function<void()>> send_handlers;
+        std::map<SocketSendError, std::function<void(const std::string&)>> send_handlers;
         /**
          * Sends a message using the stored file descriptor
          * @param buf pointer to bytes
          * @param len length of payload in bytes
          * @param flags see LibSocket::SocketSendFlags for more info (Defaults to empty list)
          */
-        void send(const void* buf, size_t len, std::initializer_list<SocketSendFlags> flags);
+        void send(const void* buf, size_t len, std::initializer_list<SocketSendFlags> flags) {
+            int sflags = 0;
+            for (auto f : flags) sflags |= (int)f;
+            auto result = ::send(_fd, buf, len, sflags);
+            auto err = errno;
+            std::string payload = (char*) buf;
+            if (result == -1 && send_handlers.contains((SocketSendError)err)) {
+                send_handlers[(SocketSendError)err](payload);
+            } else if (send_handlers.contains(SocketSendError::SUCCESS)) {
+                send_handlers[SocketSendError::SUCCESS](payload);
+            }
+        }
 
         /**
          * Sends a message in one fell swoop, prepending the message with the size
-         * @tparam T integral used to store the size of the message
          * @param message
          * @param flags
          */
-        template<typename T,
-                typename std::enable_if<std::is_integral<T>::value>
-                >
         void full_send(std::string message, std::initializer_list<SocketSendFlags> flags) {
-            char buff[message.size()+sizeof(T)+1];
-            memset(buff, 0, message.size()+sizeof(T)+1);
-            T size = (T)message.size();
+            char buff[message.size() + sizeof(SizeType) + 1];
+            memset(buff, 0, message.size() + sizeof(SizeType) + 1);
+            SizeType size = (SizeType)message.size();
 
             memcpy(buff, &size, sizeof size);
-            strcpy(buff, message.c_str());
-            send(buff, message.size()+sizeof(T)+1, flags);
+            strcpy(buff+sizeof(SizeType), message.c_str());
+            send(buff, message.size() + sizeof(SizeType) + 1, flags);
         }
 
 
         /**
-         * Sends a message using a partial message loop. Dynamically sizes the first message based on T.
+         * Sends a message using a partial message loop. Dynamically sizes the first message based on SizeType.
          * Errors are automatically handled by send().
          * @tparam T integral for storing the size of the message
          * @param message string being sent
          * @param flags see SocketSendFlags for more information
          */
-        template<typename T,
-                typename std::enable_if<std::is_integral<T>::value>
-                >
         void partial_send(std::string message, std::initializer_list<SocketSendFlags> flags) {
-            T size = (T)message.size();
-            send(&size, sizeof(T), flags);
+            SizeType size = (SizeType)message.size();
+            send(&size, sizeof(SizeType), flags);
             send(message.c_str(), message.size(), flags);
         }
 
-        Socket();
-        explicit Socket(bool auto_close);
-        ~Socket();
+        /**
+         * Sets own file descriptor to file descriptor set
+         * @param fds the set
+         */
+        void set_to_fds(fd_set& fds) const { FD_SET(_fd, &fds); }
+
+        /**
+         * Gets the socket's file descriptor
+         * @return file descriptor
+         */
+        const SocketFileDescriptor& get_fd() {return _fd;}
+
+        /**
+         * Checks if _fd is set on the file descriptor set
+         * @param fds the file descriptor set
+         * @return is _fd set on fds
+         */
+        bool fds_is_set(const fd_set& fds) {return FD_ISSET(_fd, &fds);}
+
+        /**
+         * Zeroes out all of the bits on the file descriptor set
+         * @param fds the file descriptor set
+         */
+        void fds_zero(fd_set& fds) const { FD_ZERO(&fds); }
+
+        /**
+         * Sets _fd to the file descriptor set
+         * @param fds the file descriptor set
+         */
+        void fds_set(fd_set& fds) const { FD_SET(_fd, &fds); }
+        /**
+         * Clears _fd from the file descriptor set
+         * @param fds the file descriptor set
+         */
+        void fds_clr(fd_set& fds) const { FD_CLR(_fd, &fds); }
 
         /**
          * Validates an address-related string
@@ -359,7 +379,208 @@ namespace LibSocket {
          * @param v The validator to use
          * @return is valid
          */
-        static bool validate(const std::string& input, Validator v);
+        static bool validate(const std::string& input, Validator v) {
+            switch (v) {
+                case Validator::IPV4: return std::regex_match(input, ipv4_regex);
+                case Validator::IPV6: return std::regex_match(input, ipv6_regex);
+                case Validator::PORT: return std::regex_match(input, port_regex);
+            }
+        }
+    };
+
+    template<typename SizeType>
+    class ServerSocket: public Socket<SizeType> {
+        static_assert(std::is_integral<SizeType>(), "SizeType must be an integral data type");
+    protected:
+        using Socket = Socket<SizeType>;
+        fd_set _read_fds;
+        size_t _max_users;
+    public:
+        ServerSocket(size_t max_users, bool auto_close): Socket{auto_close}, _max_users{max_users}, _read_fds{} {}
+        ServerSocket(): Socket{true}, _max_users{10}, _read_fds{} {}
+        explicit ServerSocket(size_t max_users): Socket{true}, _max_users{max_users}, _read_fds{} {}
+        explicit ServerSocket(bool auto_close): Socket{auto_close}, _max_users{10}, _read_fds{} {}
+        /// A map of every possible accept error and callback functions to run
+        std::map<SocketAcceptError, std::function<void(std::shared_ptr<Socket>)>> accept_handlers;
+        /**
+         * Extracts the first connection on the queue of pending connections and creates a socket
+         * @param address optional address
+         * @param len optional length of address
+         */
+        void accept(struct sockaddr* address, socklen_t* len) {
+            auto result = ::accept(this->_fd, address, len);
+            auto err = errno;
+            if (result == -1 && accept_handlers.contains((SocketAcceptError)err)) {
+                accept_handlers[(SocketAcceptError)err](nullptr);
+                return;
+            } else if (accept_handlers.contains(SocketAcceptError::SUCCESS)) {
+                std::shared_ptr<Socket> client = std::make_shared<Socket>();
+                client->_fd = result;
+                accept_handlers[SocketAcceptError::SUCCESS](client);
+            }
+        }
+
+        /// A map of every possible bind error and callback functions to run
+        std::map<SocketBindError, std::function<void()>> bind_handlers;
+        /**
+         * Binds socket to a new listening address
+         * @param address address to bind
+         * @param address_len length of address
+         */
+        void bind(const struct sockaddr* address, socklen_t address_len) {
+            auto result = ::bind(this->_fd, address, address_len);
+            auto err = errno;
+            if (result == -1 && bind_handlers.contains((SocketBindError)err)) {
+                bind_handlers[(SocketBindError)err]();
+            } else if (bind_handlers.contains(SocketBindError::SUCCESS)) {
+                bind_handlers[SocketBindError::SUCCESS]();
+            }
+        }
+
+        /**
+         * Connects or binds socket conveniently using IPV4
+         * @param ip IP of the endpoint
+         * @param port port of the endpoint
+         */
+        void bind_v4(const std::string& ip, const std::string& port) {
+            auto ip_validator = Validator::IPV4;
+            if (!this->validate(ip, ip_validator) && bind_handlers.contains(SocketBindError::INVALID_ADDRESS)) {
+                bind_handlers[SocketBindError::INVALID_ADDRESS]();
+                return;
+            }
+            if (!this->validate(port, Validator::PORT) && bind_handlers.contains(SocketBindError::INVALID_PORT)) {
+                bind_handlers[SocketBindError::INVALID_PORT]();
+                return;
+            }
+            struct sockaddr_in out{};
+            out.sin_family = (int)ip_validator;
+            out.sin_port = htons(stoi(port));
+            if (inet_pton((int)ip_validator, ip.c_str(), &out.sin_addr) <= 0 && bind_handlers.contains(SocketBindError::INVALID_ADDRESS)) {
+                bind_handlers[SocketBindError::INVALID_ADDRESS]();
+            }
+            this->bind((struct sockaddr*)&out, sizeof out);
+        }
+        /**
+         * Connects or binds socket conveniently using IPV4
+         * @param ip IP of the endpoint
+         * @param port port of the endpoint
+         */
+        void bind_v6(const std::string& ip, const std::string& port) {
+            auto ip_validator = Validator::IPV6;
+            if (!this->validate(ip, ip_validator) && bind_handlers.contains(SocketBindError::INVALID_ADDRESS)) {
+                bind_handlers[SocketBindError::INVALID_ADDRESS]();
+                return;
+            }
+            if (!this->validate(port, Validator::PORT) && bind_handlers.contains(SocketBindError::INVALID_PORT)) {
+                bind_handlers[SocketBindError::INVALID_PORT]();
+                return;
+            }
+            struct sockaddr_in6 out{};
+            out.sin6_family = (int)ip_validator;
+            out.sin6_port = htons(stoi(port));
+            if (inet_pton((int)ip_validator, ip.c_str(), &out.sin6_addr) <= 0 && bind_handlers.contains(SocketBindError::INVALID_ADDRESS)) {
+                bind_handlers[SocketBindError::INVALID_ADDRESS]();
+            }
+            this->bind((struct sockaddr*)&out, sizeof out);
+        }
+        /// A map of every possible listen error and callback functions to run
+        std::map<SocketListenError, std::function<void()>> listen_handlers;
+        void listen() {
+            auto result = ::listen(this->_fd, _max_users);
+            auto err = (SocketListenError)errno;
+            if (result == -1 && listen_handlers.contains(err)) {
+                listen_handlers[err]();
+            } else if (listen_handlers.contains(SocketListenError::SUCCESS)) {
+                listen_handlers[SocketListenError::SUCCESS]();
+            }
+        }
+
+        void select(int max_sd, struct timeval* timeout) {
+            auto result = ::select(max_sd + 1, &_read_fds, nullptr, nullptr, timeout);
+            auto err = errno;
+            if (result == -1 && select_handlers.contains((SocketSelectError)err)) {
+                select_handlers[(SocketSelectError)err]();
+            } else if (select_handlers.contains(SocketSelectError::SUCCESS)) {
+                select_handlers[SocketSelectError::SUCCESS]();
+            }
+        }
+
+        /// A map of every possible bind error and callback functions to run
+        std::map<SocketSelectError, std::function<void()>> select_handlers;
+
+    };
+    template<typename SizeType>
+    class ClientSocket: public Socket<SizeType> {
+    protected:
+        using Socket = Socket<SizeType>;
+    public:
+        ClientSocket(): Socket{true} {}
+        explicit ClientSocket(bool auto_close): Socket{auto_close} {}
+        /// A map of every possible connect error and callback functions to run
+        std::map<SocketConnectError, std::function<void()>> connect_handlers;
+        /**
+         * Connects socket to address (connection-mode sockets only)
+         * @param address the address struct
+         * @param address_len length of the sockaddr structure pointed to by address
+         */
+        void connect(const struct sockaddr* address, socklen_t address_len) {
+            auto result = ::connect(this->_fd, address, address_len);
+            auto err = errno;
+            if (result == -1 && connect_handlers.contains((SocketConnectError)err)) {
+                connect_handlers[(SocketConnectError)err]();
+            } else if (connect_handlers.contains(SocketConnectError::SUCCESS)) {
+                connect_handlers[SocketConnectError::SUCCESS]();
+            }
+        }
+
+        /**
+         * Connects or binds socket conveniently using IPV4 or IPV6 syntax
+         * @param ip IP of the endpoint
+         * @param port port of the endpoint
+         * @param out the resulting socket address
+         */
+        void connect_v4(const std::string& ip, const std::string& port) {
+            auto ip_validator = Validator::IPV4;
+            if (!this->validate(ip, ip_validator) && connect_handlers.contains(SocketConnectError::INVALID_ADDRESS)) {
+                connect_handlers[SocketConnectError::INVALID_ADDRESS]();
+                return;
+            }
+            if (!this->validate(port, Validator::PORT) && connect_handlers.contains(SocketConnectError::INVALID_PORT)) {
+                connect_handlers[SocketConnectError::INVALID_PORT]();
+                return;
+            }
+            struct sockaddr_in out{};
+            out.sin_family = (int)ip_validator;
+            out.sin_port = htons(stoi(port));
+            if (inet_pton((int)ip_validator, ip.c_str(), &out.sin_addr) <= 0 && connect_handlers.contains(SocketConnectError::INVALID_ADDRESS)) {
+                connect_handlers[SocketConnectError::INVALID_ADDRESS]();
+            }
+            connect((struct sockaddr*)&out, sizeof out);
+        }
+        /**
+         * Connects or binds socket conveniently using IPV4 or IPV6 syntax
+         * @param ip IP of the endpoint
+         * @param port port of the endpoint
+         * @param out the resulting socket address
+         */
+        void connect_v6(const std::string& ip, const std::string& port) {
+            auto ip_validator = Validator::IPV6;
+            if (!this->validate(ip, ip_validator) && connect_handlers.contains(SocketConnectError::INVALID_ADDRESS)) {
+                connect_handlers[SocketConnectError::INVALID_ADDRESS]();
+                return;
+            }
+            if (!this->validate(port, Validator::PORT) && connect_handlers.contains(SocketConnectError::INVALID_PORT)) {
+                connect_handlers[SocketConnectError::INVALID_PORT]();
+                return;
+            }
+            struct sockaddr_in6 out{};
+            out.sin6_family = (int)ip_validator;
+            out.sin6_port = htons(stoi(port));
+            if (inet_pton((int)ip_validator, ip.c_str(), &out.sin6_addr) <= 0 && connect_handlers.contains(SocketConnectError::INVALID_ADDRESS)) {
+                connect_handlers[SocketConnectError::INVALID_ADDRESS]();
+            }
+            connect((struct sockaddr*)&out, sizeof out);
+        }
     };
 
 } // LibSocket

@@ -11,34 +11,37 @@ namespace ClientServerChatApp {
     /**
      * Server object encapsulating the low level functionality of working with sockets
      */
-    class Server: public SocketEntity {
+    class Server: public LibSocket::ServerSocket<SocketSizeType> {
     private:
+        using Socket = LibSocket::Socket<SocketSizeType>;
         /**
          * Function created when running the server thread
          * @param server Pointer to server object
          * @param port Port number to listen on
          */
         static void run_server(Server* server, std::string port);
-        /**
-         * Have server start listening
-         * @param port the port to listen on
-         * @return signal result from listening
-         */
-        SocketSignal start_listening(std::string port);
-        static constexpr int MAX_USERS() {return 10;};
+
+        std::vector<std::shared_ptr<Socket>> _client_sockets;
     public:
-        /// Vector of file descriptors representing accepted client sockets
-        std::vector<int> client_sockets;
+        /// Child thread sends Socket created successful, main receives it
+        SyncPoint<bool> sync_socket_created;
+        /// Child thread sends Socket connection successful, main receives it
+        SyncPoint<bool> sync_socket_established;
+        SmartConsole::Console* console;
         /**
          * Sends message to all connected clients
          * @param message
          */
-        void broadcast(std::string message);
+        void broadcast(const std::string& message);
         /**
          * Constructs the Server object
          * @param _console to handle rendering to the screen
          */
         explicit Server(SmartConsole::Console* _console);
+        /// The function that gets run inside a loop that handles constant polling of the sockets
+        void run_loop(struct timeval* timeout);
+        void run_loop_timeout(size_t seconds, size_t microseconds = 0);
+        void run_loop_timeout();
         std::map<int, std::string> users;
         std::thread initialize_server(std::string port);
     };

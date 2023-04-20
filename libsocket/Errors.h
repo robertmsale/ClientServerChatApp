@@ -6,6 +6,7 @@
 #define CLIENTSERVERCHATAPP_ERRORS_H
 
 #include <cerrno>
+#include <initializer_list>
 
 namespace LibSocket {
 
@@ -29,7 +30,19 @@ namespace LibSocket {
         /// Insufficient memory available.
         NO_MEMORY_AVAILABLE = ENOMEM,
         /// The protocol type or the specified protocol is not supported within this domain
-        PROTOCOL_NOT_SUPPORTED = EPROTONOSUPPORT
+        PROTOCOL_NOT_SUPPORTED = EPROTONOSUPPORT,
+        /// Indicates successful creation and used by creation handler
+        SUCCESS
+    };
+    /// A list of all create errors, not including success, iterable
+    constexpr std::initializer_list<SocketCreateError> all_create_errors = {
+            SocketCreateError::ACCESS_DENIED,
+            SocketCreateError::ADDRESS_FAMILY_NOT_SUPPORTED,
+            SocketCreateError::INVALID_FLAG,
+            SocketCreateError::OPEN_FD_LIMIT,
+            SocketCreateError::NO_BUFFERS_AVAILABLE,
+            SocketCreateError::NO_MEMORY_AVAILABLE,
+            SocketCreateError::PROTOCOL_NOT_SUPPORTED
     };
     enum class SocketAcceptError {
         /// The socket is nonblocking and no connections are present to be accepted
@@ -59,7 +72,26 @@ namespace LibSocket {
         /// Firewall rules forbid connection
         FIREWALL_BLOCKED = EPERM,
         /// Protocol error
-        PROTOCOL = EPROTO
+        PROTOCOL = EPROTO,
+        /// Indicates successful creation and used by creation handler
+        SUCCESS
+    };
+    /// A list of all accept errors, not including success, iterable
+    constexpr std::initializer_list<SocketAcceptError> all_accept_errors = {
+        SocketAcceptError::AGAIN,
+        SocketAcceptError::WOULD_BLOCK,
+        SocketAcceptError::BAD_FD,
+        SocketAcceptError::ABORTED,
+        SocketAcceptError::ADDR_NOT_WRITEABLE,
+        SocketAcceptError::INTERRUPTED,
+        SocketAcceptError::INVALID,
+        SocketAcceptError::OPEN_FD_LIMIT,
+        SocketAcceptError::NO_BUFFERS_AVAILABLE,
+        SocketAcceptError::NO_MEMORY_AVAILABLE,
+        SocketAcceptError::NOT_A_SOCKET,
+        SocketAcceptError::NOT_A_STREAM,
+        SocketAcceptError::FIREWALL_BLOCKED,
+        SocketAcceptError::PROTOCOL,
     };
     enum class SocketBindError {
         /// Address is protected and the user is not the superuser
@@ -93,7 +125,31 @@ namespace LibSocket {
         /// A component of the path prefix is not a directory
         NOT_A_DIRECTORY = ENOTDIR,
         /// Socket inode resides in read-only filesystem
-        READ_ONLY = EROFS
+        READ_ONLY = EROFS,
+        /// Address string did not pass validation
+        INVALID_ADDRESS,
+        /// Port string did not pass validation
+        INVALID_PORT,
+        /// Indicates successful creation and used by creation handler
+        SUCCESS
+    };
+    /// A list of all bind errors, not including success, iterable
+    constexpr std::initializer_list<SocketBindError> all_bind_errors = {
+        SocketBindError::ACCESS_DENIED,
+        SocketBindError::ADDRESS_IN_USE,
+        SocketBindError::BAD_FD,
+        SocketBindError::INVALID,
+        SocketBindError::NOT_A_SOCKET,
+        SocketBindError::ADDRESS_NOT_AVAILABLE,
+        SocketBindError::OUTSIDE_ADDRESS_SPACE,
+        SocketBindError::EXCEEDED_SYMLINK_RECURSION_DEPTH,
+        SocketBindError::NAME_TOO_LONG,
+        SocketBindError::DOESNT_EXIST,
+        SocketBindError::NO_MEMORY_AVAILABLE,
+        SocketBindError::NOT_A_DIRECTORY,
+        SocketBindError::READ_ONLY,
+        SocketBindError::INVALID_ADDRESS,
+        SocketBindError::INVALID_PORT,
     };
     enum class SocketCloseError {
         /// Not a valid file descriptor
@@ -105,7 +161,17 @@ namespace LibSocket {
         /// Exceeds available storage space
         NO_SPACE = ENOSPC,
         /// Exceeds write quota
-        QUOTA = EDQUOT
+        QUOTA = EDQUOT,
+        /// Indicates successful creation and used by creation handler
+        SUCCESS
+    };
+    /// A list of all close errors, not including success, iterable
+    constexpr std::initializer_list<SocketCloseError> all_close_errors = {
+        SocketCloseError::BAD_FD,
+        SocketCloseError::INTERRUPTED,
+        SocketCloseError::IO,
+        SocketCloseError::NO_SPACE,
+        SocketCloseError::QUOTA,
     };
     enum class SocketConnectError {
         /// For UNIX domain sockets, which are identified by pathname:
@@ -175,7 +241,30 @@ namespace LibSocket {
         /// Address string did not pass validation
         INVALID_ADDRESS,
         /// Port string did not pass validation
-        INVALID_PORT
+        INVALID_PORT,
+        /// Indicates successful creation and used by creation handler
+        SUCCESS
+    };
+    constexpr std::initializer_list<SocketConnectError> all_connect_errors = {
+        SocketConnectError::ACCESS_DENIED,
+        SocketConnectError::FIREWALL_BLOCKED,
+        SocketConnectError::ADDRESS_IN_USE,
+        SocketConnectError::ADDRESS_NOT_AVAILABLE,
+        SocketConnectError::FAMILY_NOT_SUPPORTED,
+        SocketConnectError::NOT_RIGHT_NOW,
+        SocketConnectError::PREVIOUS_NOT_DONE,
+        SocketConnectError::BAD_FD,
+        SocketConnectError::CONNECTION_REFUSED,
+        SocketConnectError::FAULT,
+        SocketConnectError::IN_PROGRESS,
+        SocketConnectError::INTERRUPTED,
+        SocketConnectError::ALREADY_CONNECTED,
+        SocketConnectError::UNREACHABLE,
+        SocketConnectError::NOT_A_SOCKET,
+        SocketConnectError::PROTOTYPE_NOT_SUPPORTED,
+        SocketConnectError::TIMED_OUT,
+        SocketConnectError::INVALID_ADDRESS,
+        SocketConnectError::INVALID_PORT,
     };
     enum class SocketGetPeerNameError {
         /// The argument sockfd is not a valid file descriptor.
@@ -189,7 +278,18 @@ namespace LibSocket {
         /// The socket is not connected.
         NOT_CONNECTED = ENOTCONN,
         /// The file descriptor sockfd does not refer to a socket.
-        NOT_A_SOCKET = ENOTSOCK
+        NOT_A_SOCKET = ENOTSOCK,
+        /// Indicates successful creation and used by creation handler
+        SUCCESS
+    };
+
+    constexpr std::initializer_list<SocketGetPeerNameError> all_get_peer_name_errors = {
+        SocketGetPeerNameError::BAD_FD,
+        SocketGetPeerNameError::FAULT,
+        SocketGetPeerNameError::INVALID,
+        SocketGetPeerNameError::NO_RESOURCES,
+        SocketGetPeerNameError::NOT_CONNECTED,
+        SocketGetPeerNameError::NOT_A_SOCKET,
     };
     enum class SocketGetSockNameError {
         /// The argument sockfd is not a valid file descriptor.
@@ -201,7 +301,16 @@ namespace LibSocket {
         /// Insufficient resources were available in the system to perform the operation.
         NO_RESOURCES = ENOBUFS,
         /// The file descriptor sockfd does not refer to a socket.
-        NOT_A_SOCKET = ENOTSOCK
+        NOT_A_SOCKET = ENOTSOCK,
+        /// Indicates successful creation and used by creation handler
+        SUCCESS
+    };
+    constexpr std::initializer_list<SocketGetSockNameError> all_get_sock_name_errors = {
+        SocketGetSockNameError::BAD_FD,
+        SocketGetSockNameError::FAULT,
+        SocketGetSockNameError::INVALID,
+        SocketGetSockNameError::NO_RESOURCES,
+        SocketGetSockNameError::NOT_A_SOCKET,
     };
     enum class SocketGetSockOptError {
         /// The argument sockfd is not a valid file descriptor.
@@ -217,7 +326,16 @@ namespace LibSocket {
         /// The option is unknown at the level indicated
         OPTION_UNKNOWN = ENOPROTOOPT,
         /// The file descriptor sockfd does not refer to a socket
-        NOT_A_SOCKET = ENOTSOCK
+        NOT_A_SOCKET = ENOTSOCK,
+        /// Indicates successful creation and used by creation handler
+        SUCCESS
+    };
+    constexpr std::initializer_list<SocketGetSockOptError> all_get_sock_opt_errors = {
+        SocketGetSockOptError::BAD_FD,
+        SocketGetSockOptError::FAULT,
+        SocketGetSockOptError::INVALID,
+        SocketGetSockOptError::OPTION_UNKNOWN,
+        SocketGetSockOptError::NOT_A_SOCKET,
     };
     enum class SocketListenError {
         /// The argument sockfd is not a valid file descriptor.
@@ -231,7 +349,15 @@ namespace LibSocket {
         /// The file descriptor sockfd does not refer to a socket..
         NOT_A_SOCKET = ENOTSOCK,
         /// The socket is not of a type that supports the listen() operation
-        UNSUPPORTED_OPERATION = EOPNOTSUPP
+        UNSUPPORTED_OPERATION = EOPNOTSUPP,
+        /// Indicates successful creation and used by creation handler
+        SUCCESS
+    };
+    constexpr std::initializer_list<SocketListenError> all_listen_errors = {
+        SocketListenError::BAD_FD,
+        SocketListenError::ADDRESS_IN_USE,
+        SocketListenError::NOT_A_SOCKET,
+        SocketListenError::UNSUPPORTED_OPERATION,
     };
     enum class SocketReceiveError {
         /// The socket is nonblocking and no connections are present to be accepted
@@ -255,6 +381,22 @@ namespace LibSocket {
         NOT_CONNECTED = ENOTCONN,
         /// The file descriptor sockfd does not refer to a socket
         NOT_A_SOCKET = ENOTSOCK,
+        /// Socket is disconnecting
+        DISCONNECTING,
+        /// Indicates successful creation and used by creation handler
+        SUCCESS
+    };
+    constexpr std::initializer_list<SocketReceiveError> all_receive_errors = {
+        SocketReceiveError::AGAIN,
+        SocketReceiveError::WOULD_BLOCK,
+        SocketReceiveError::BAD_FD,
+        SocketReceiveError::CONNECTION_REFUSED,
+        SocketReceiveError::FAULT,
+        SocketReceiveError::INTERRUPTED,
+        SocketReceiveError::INVALID_ARG,
+        SocketReceiveError::NO_MEMORY,
+        SocketReceiveError::NOT_CONNECTED,
+        SocketReceiveError::NOT_A_SOCKET,
     };
     enum class SocketSelectError {
         /// The argument sockfd is not a valid file descriptor
@@ -265,7 +407,15 @@ namespace LibSocket {
         /// or value contained within timeout is invalid
         INVALID = EINVAL,
         /// Unable to allocate memory for internal tables
-        NO_MEMORY = ENOMEM
+        NO_MEMORY = ENOMEM,
+        /// Indicates successful creation and used by creation handler
+        SUCCESS
+    };
+    constexpr std::initializer_list<SocketSelectError> all_select_errors = {
+        SocketSelectError::BAD_FD,
+        SocketSelectError::INTERRUPTED,
+        SocketSelectError::INVALID,
+        SocketSelectError::NO_MEMORY,
     };
     enum class SocketSendError {
         /// The socket is nonblocking and no connections are present to be accepted
@@ -310,7 +460,29 @@ namespace LibSocket {
         /// Some bit in the flags argument is inappropriate for the socket type
         OPTION_NOT_SUPPORTED = EOPNOTSUPP,
         /// The local end has been shut down on a connection oriented socket.
-        PIPE = EPIPE
+        PIPE = EPIPE,
+        /// Indicates successful creation and used by creation handler
+        SUCCESS
+    };
+    constexpr std::initializer_list<SocketSendError> all_send_errors = {
+        SocketSendError::AGAIN,
+        SocketSendError::WOULD_BLOCK,
+        SocketSendError::ACCESS_DENIED,
+        SocketSendError::FAST_OPEN_IN_PROGRESS,
+        SocketSendError::BAD_FD,
+        SocketSendError::CONNECTION_RESET,
+        SocketSendError::DESTINATION_ADDRESS_REQUIRED,
+        SocketSendError::FAULT,
+        SocketSendError::INTERRUPTED,
+        SocketSendError::INVALID,
+        SocketSendError::ALREADY_CONNECTED,
+        SocketSendError::MESSAGE_SIZE_BAD,
+        SocketSendError::NO_BUFFERS_AVAILABLE,
+        SocketSendError::NO_MEMORY,
+        SocketSendError::NOT_CONNECTED,
+        SocketSendError::NOT_A_SOCKET,
+        SocketSendError::OPTION_NOT_SUPPORTED,
+        SocketSendError::PIPE,
     };
     enum class SocketShutdownError {
         /// The argument sockfd is not a valid file descriptor.
@@ -321,6 +493,14 @@ namespace LibSocket {
         NOT_CONNECTED = ENOTCONN,
         /// The file descriptor sockfd does not refer to a socket
         NOT_A_SOCKET = ENOTSOCK,
+        /// Indicates successful creation and used by creation handler
+        SUCCESS
+    };
+    constexpr std::initializer_list<SocketShutdownError> all_shutdown_errors = {
+        SocketShutdownError::BAD_FD,
+        SocketShutdownError::INVALID,
+        SocketShutdownError::NOT_CONNECTED,
+        SocketShutdownError::NOT_A_SOCKET,
     };
 }
 #endif //CLIENTSERVERCHATAPP_ERRORS_H
