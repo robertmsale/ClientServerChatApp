@@ -5,6 +5,7 @@
 #include "Server.h"
 #include "Commands.h"
 #include "Logger.h"
+#include <fstream>
 
 namespace ClientServerChatApp {
 
@@ -37,6 +38,10 @@ namespace ClientServerChatApp {
                     server->console->push_message(derp);
                     return;
                 }
+                if(!server->users.contains(client->get_fd())) {
+                    client->full_send("[ERROR]: You must register to send messages!", {});
+                    return;
+                }
                 if (msg.starts_with(Commands::EXIT())) {
                     auto message = std::string("[INFO]: " + server->users[client->get_fd()] + " disconnected.");
                     server->broadcast(message);
@@ -50,11 +55,22 @@ namespace ClientServerChatApp {
                     return;
                 }
                 if (msg.starts_with(Commands::GET_LIST())) {
-                    // TODO: Implement $getlist in the server
+                    for (auto i = server->users.begin(); i != server->users.end(); i++) {
+                        client->full_send(i->second, {});
+                    }
+                    client->full_send(MessageSignals::SRV_DONE_SEND(), {});
                     return;
                 }
                 if (msg.starts_with(Commands::GET_LOG())) {
-                    // TODO: Implement $getlog in the server
+                    std::string line;
+                    UniqueLock lock{Utilities::logger_mtx};
+                    std::ifstream file{Utilities::logger_file_path};
+                    // send every line of the file
+                    while(getline(file, line)) {
+                        client->full_send(line, {});
+                    }
+                    client->full_send(MessageSignals::SRV_DONE_SEND(), {});
+                    // let client deal with what to do next
                     return;
                 }
                 std::string response = server->users[client->get_fd()] + ": " + msg;

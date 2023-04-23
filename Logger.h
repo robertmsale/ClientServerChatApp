@@ -7,6 +7,7 @@
 
 namespace Utilities {
     extern std::string logger_file_path;
+    extern std::mutex logger_mtx;
     void log(std::string message);
 } // Utilities
 

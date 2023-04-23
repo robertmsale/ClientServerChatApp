@@ -2,6 +2,7 @@
 // Created by Robert Sale on 8/29/21.
 //
 #include "Console.h"
+#include "ShutdownTasks.h"
 
 #pragma region OldSmartConsoleCode
 void SetGraphicsRendition(std::ostream& ss, const int *rg, int size, char terminator = 'm') {
@@ -416,26 +417,25 @@ namespace SmartConsole {
                 std::this_thread::sleep_for(std::chrono::seconds(1));
             }
         }};
-        while(!console->shutdown.load()) {
-            // check if layout needs updating
-//            if (console->console_height() <= 0) continue;
-//            if (console->_refresh_layout.load()) {
-                SmartConsole::Clear(console->ss);
-                console->draw_title();
-                console->draw_message_window();
-//                console->_refresh_layout.store(false);
-//            }
-            // lock and deal with messages
-            console->messages_mtx.lock();
-            // if scrolled to the bottom keep it that way
-            if (console->_message_window_autoscroll.load()) {
-                // always make sure scroll position is at the bottom if autoscroll is enabled
-                console->_message_window_scroll_position.store(std::max((int)console->messages.size() - (console->console_height() - (int)title_height() - 4), 0));
+        ClientServerChatApp::ShutdownTasks::instance().push_task([&] {
+            console->shutdown.store(true);
+        });
+        ClientServerChatApp::ShutdownTasks::instance().push_task([&] {
+            console->refresh_text.resolve(true);
+        });
+        console->render_hooks.push([&](Console* c) {
+            SmartConsole::Clear(c->ss);
+        });
+        console->render_hooks.push([&](Console* c) {
+            c->draw_title();
+            c->draw_message_window();
+            c->messages_mtx.lock();
+            if (c->_message_window_autoscroll.load()) {
+                c->_message_window_scroll_position.store(std::max((int)c->messages.size() - (c->console_height() - (int)title_height() - 4), 0));
             }
-//            console->clear_message_window();
-            console->draw_scroll_bar();
-            console->draw_messages();
-            console->messages_mtx.unlock();
+            c->draw_scroll_bar();
+            c->draw_messages();
+            c->messages_mtx.unlock();
 
             // ┌─ Messages ───────────┐
             // │<user>: Ayyy          │
@@ -454,6 +454,9 @@ namespace SmartConsole {
             console->ss << ">\x1b[" << strlen(console->buffer) << "C";
             // Clear graphics rendition
             SmartConsole::ResetFormat(console->ss);
+            }, 1);
+        while(!console->shutdown.load()) {
+            console->render_hooks.execute(console);
             // Now that the string stream is full of all the chars I want to insert into the
             // terminal screen, insert all of it at once and flush the buffer
             std::cout << console->ss.str() << std::flush;
@@ -466,32 +469,30 @@ namespace SmartConsole {
     }
 
     void Console::run_input_capture(SmartConsole::Console *console) {
-        while(!console->shutdown.load()) {
-            // only one char is ever captured, but keep extra available just incase.
-            char buff[16];
-            // always clear that buffer
-            memset(buff, 0, 16);
-            // read stdin file descriptor and output results to buffer
-            read(STDIN_FILENO, &buff, 16);
+        ClientServerChatApp::ShutdownTasks::instance().push_task([] {
+            char e = 'a';
+            write(STDIN_FILENO, &e, 1);
+        });
+        console->input_hooks.push([&] (char* buff) {
             if (buff[0] == (char)127) { // backspace
                 // do nothing if buffer is empty
-                if (console->buff_position == 0) continue;
+                if (console->buff_position > 0)
                 // set current char to null and move position backwards
                 console->buffer[--console->buff_position] = '\0';
             } else if(buff[0] == '\n') { // new line
                 // do nothing if buffer is empty
-                if (strlen(console->buffer) == 0) continue;
-                // if user types exit, begin graceful shutdown for all threads
-                if (strcmp(console->buffer, "$exit") == 0) {
-                    console->shutdown.store(true);
-                    console->refresh_text.resolve(true);
+                if (strlen(console->buffer) > 0) {
+                    // if user types exit, begin graceful shutdown for all threads
+                    if (strcmp(console->buffer, "$exit") == 0) {
+                        ClientServerChatApp::ShutdownTasks::instance().execute();
+                    }
+                    // pass char buffer into ring buffer queue to be processed by main thread
+                    console->ring_buffer.tx(std::string{console->buffer});
+                    // reset buffer position to zero
+                    console->buff_position = 0;
+                    // zero out char buffer
+                    memset(console->buffer, 0, SocketMaxMessageSize());
                 }
-                // pass char buffer into ring buffer queue to be processed by main thread
-                console->ring_buffer.tx(std::string{console->buffer});
-                // reset buffer position to zero
-                console->buff_position = 0;
-                // zero out char buffer
-                memset(console->buffer, 0, SocketMaxMessageSize());
             } else if (buff[0] >= ' ' && buff[0] <= '~') { // if char is a displayable ASCII character
                 // copy temp buffer to the end of console buffer and increment position
                 strcpy(console->buffer + (console->buff_position++), buff);
@@ -499,14 +500,14 @@ namespace SmartConsole {
                 // scrolling up always disables autoscroll
                 console->_message_window_autoscroll.store(false);
                 // can't scroll passed zero
-                if (console->_message_window_scroll_position.load() == 0) continue;
-                // subtract 1 from scroll position
-                atomic_fetch_sub(&console->_message_window_scroll_position,1);
-                // tell renderer to refresh screen
-                console->refresh_text.resolve(true);
-            } else if (strcmp(buff, "\x1b[B") == 0) { // down arrow
+                if (console->_message_window_scroll_position.load() > 0) {
+                    // subtract 1 from scroll position
+                    atomic_fetch_sub(&console->_message_window_scroll_position, 1);
+                    // tell renderer to refresh screen
+                    console->refresh_text.resolve(true);
+                }
+            } else if (strcmp(buff, "\x1b[B") == 0 && !console->_message_window_autoscroll.load()) { // down arrow
                 // if already at the bottom, do nothing
-                if (console->_message_window_autoscroll.load()) continue;
                 // bottom of message window should have last message
                 auto end = console->messages.size() - (console->msg_window_size());
                 // add to scroll position
@@ -516,6 +517,17 @@ namespace SmartConsole {
                 // tell renderer to refresh screen
                 console->refresh_text.resolve(true);
             }
+        });
+        while(!console->shutdown.load()) {
+            // only one char is ever captured, but keep extra available just incase.
+            char buff[16];
+            // always clear that buffer
+            memset(buff, 0, 16);
+            // read stdin file descriptor and output results to buffer
+            read(STDIN_FILENO, &buff, 16);
+
+            console->input_hooks.execute(buff);
+
             // TODO: Make sure this isn't competing with renderer
             SmartConsole::ResetFormat(std::cout);
             std::cout << "\x1b[" << console->console_height() << ";3H\x1b[" << console->console_width() << "P" << console->buffer << std::flush;

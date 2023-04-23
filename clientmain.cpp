@@ -1,6 +1,7 @@
 #include "Console.h"
 #include "Commands.h"
 #include "Client.h"
+#include "ShutdownTasks.h"
 
 #define PHASE 1
 
@@ -14,6 +15,9 @@ int main() {
     tcgetattr(STDIN_FILENO, &orig_tios);
     // Disable echo. This allows me to control all keyboard input by the user. (also disables ctrl+c unfortunately)
     disable_echo(&orig_tios);
+    ClientServerChatApp::ShutdownTasks::instance().push_task([&] {
+        tcsetattr(STDIN_FILENO, TCSAFLUSH, &orig_tios);
+    });
 
     SmartConsole::Console console{"$register, $exit, $getlist, $getlog"};
     SmartConsole::Clear(std::cout);
@@ -42,6 +46,10 @@ int main() {
     std::regex ip_regex{"(([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])\\.){3}([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])"};
     std::regex port_regex{"([1-9][0-9]{0,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5])"};
 #endif
+    ClientServerChatApp::ShutdownTasks::instance().push_task([&] {
+        console.shutdown.store(true);
+        console.ring_buffer.tx("$exit");
+    });
     while(!console.shutdown.load()) {
         // receive user input
         auto user_msg = console.ring_buffer.rx();
@@ -107,7 +115,6 @@ int main() {
     renderer_thread.join();
     input_capture_thread.join();
 
-    tcsetattr(STDIN_FILENO, TCSAFLUSH, &orig_tios);
     return 0;
 }
 

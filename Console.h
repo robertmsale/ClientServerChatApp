@@ -9,6 +9,8 @@
 #include <Windows.h>
 #else
 #include <termios.h>
+
+#include <utility>
 #endif
 
 /**
@@ -111,13 +113,77 @@ namespace SmartConsole {
     void InitializeTerminal();
     void SaveCursorPosition(std::ostream& ss);
     void RestoreCursorPosition(std::ostream& ss);
+    class Console;
+    template <typename T>
+    using ConsoleHookFunction = std::function<void(T)>;
+    template <typename T>
+    struct Hook {
+        size_t id;
+        size_t group;
+        bool active;
+        ConsoleHookFunction<T> hook;
+        Hook(ConsoleHookFunction<T> _hook): hook(std::move(_hook)), group{0}, active{true} {
+            static std::atomic<size_t> _id{0}; // always a unique id :-)
+            id = std::atomic_fetch_add(&_id, 1); // fetch and increment
+        }
+        Hook(ConsoleHookFunction<T> _hook, size_t _group): hook{std::move(_hook)}, group{_group}, active{true} {}
+    };
+    template<typename T>
+    class ConsoleHooks {
+    private:
+        std::vector<Hook<T>> hooks;
+        std::mutex mtx;
+    public:
+        ConsoleHooks(): hooks{}, mtx{} {}
+        size_t push(const ConsoleHookFunction<T>& hook, size_t group = 0) {
+            Hook nHook{hook, group};
+            UniqueLock lock{mtx};
+            hooks.push_back(nHook);
+            return hooks[hooks.size()-1].id;
+        }
+        void erase(size_t with_id) {
+            UniqueLock lock{mtx};
+            for (size_t i = 0; i < hooks.size(); ++i) {
+                if (hooks[i].id == with_id) {
+                    hooks.erase(hooks.begin() + i);
+                    return;
+                }
+            }
+        }
+        void erase_group(size_t group) {
+//            UniqueLock lock{mtx};
+            for (size_t i = 0; i < hooks.size(); ++i) {
+                if (hooks[i].group == group) {
+                    hooks.erase(hooks.begin() + i);
+                    i--;
+                }
+            }
+        }
+        void set_active(size_t group, bool to) {
+//            UniqueLock lock{mtx};
+            for(auto& hook : hooks) {
+                if (hook.group == group) hook.active = to;
+            }
+        }
+        void execute(T param) {
+//            UniqueLock lock{mtx};
+            // sort by group
+            std::sort(hooks.begin(), hooks.end(), [](Hook<T>& l, Hook<T>& r) {return l.group < r.group;});
+            std::vector<Hook<T>> cpy = hooks;
+//            lock.unlock();
+            for (const auto& h : cpy) {
+                if (!h.active) continue;
+                h.hook(param); // execute in that order
+            }
+        }
+    };
 
     /**
      * Class responsible for managing standard input and output
      */
     class Console {
     public:
-        Console(std::string commands);
+        explicit Console(std::string commands);
 #pragma region LayoutProperties
     private:
         /// Commands string below the messages window
@@ -138,6 +204,8 @@ namespace SmartConsole {
 #pragma endregion
 #pragma region StoredProperties
     public:
+
+        std::atomic<bool> alternate_buffer{false};
 
         /// Tells threads when to gracefully shut down
         std::atomic<bool> shutdown{false};
@@ -177,6 +245,9 @@ namespace SmartConsole {
         /// String stream for generating the console window
         /// using this rather than std::cout so the whole screen buffer can be generated before sending to stdout
         std::stringstream ss;
+
+        ConsoleHooks<Console*> render_hooks;
+        ConsoleHooks<char*> input_hooks;
 #pragma endregion
 #pragma region ComputedProperties
         /// Get the console width from the private atomic field

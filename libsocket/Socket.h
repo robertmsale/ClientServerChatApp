@@ -296,6 +296,7 @@ namespace LibSocket {
          * @param flags see LibSocket::SocketSendFlags for more info (Defaults to empty list)
          */
         void send(const void* buf, size_t len, std::initializer_list<SocketSendFlags> flags) {
+            if (len == 0) return;
             int sflags = 0;
             for (auto f : flags) sflags |= (int)f;
             auto result = ::send(_fd, buf, len, sflags);
@@ -317,6 +318,7 @@ namespace LibSocket {
             char buff[message.size() + sizeof(SizeType) + 1];
             memset(buff, 0, message.size() + sizeof(SizeType) + 1);
             SizeType size = (SizeType)message.size();
+            if (size == 0) return;
 
             memcpy(buff, &size, sizeof size);
             strcpy(buff+sizeof(SizeType), message.c_str());

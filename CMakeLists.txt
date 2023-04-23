@@ -14,10 +14,11 @@ set(SHARED_SRCS
         SyncPoint.h
         RingBuffer.h
         pch.h
-        )
+        ShutdownTasks.cpp
+        ShutdownTasks.h)
 
 # Client only sources
-set(CLIENT_SRCS clientmain.cpp Client.cpp Client.h Logger.cpp Logger.h)
+set(CLIENT_SRCS clientmain.cpp Client.cpp Client.h)
 # Server only sources
 set(SERVER_SRCS servermain.cpp Server.cpp Server.h Logger.cpp Logger.h)
 

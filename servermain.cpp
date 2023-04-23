@@ -33,8 +33,6 @@ int main(int argc, char** argv) {
     std::thread server_thread = server.initialize_server(port);
     while (!console.shutdown.load()) std::this_thread::sleep_for(std::chrono::seconds(2));
     server_thread.join();
-    console.shutdown.store(true);
-    console.refresh_text.resolve(true);
     input_capturer.join();
     renderer.join();
     return 0;

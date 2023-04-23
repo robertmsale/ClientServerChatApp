@@ -71,5 +71,6 @@ constexpr size_t SocketMaxMessageSize() {
 
 using MessageSignalType = std::string;
 namespace MessageSignals {
-    constexpr MessageSignalType SRV_FULL() {return "SRV_FULL";}
+    constexpr MessageSignalType SRV_FULL() {return "SRV_FULL KbpEWst/j5gpYunQfUZ1Ez1GcaR+n0J8nCEkUNWU/AafOR8QhrV6nu0wf3EGSA+HnRRVbFaDrAfMlmyD46RmMQ==";}
+    constexpr MessageSignalType SRV_DONE_SEND() {return "SRV_DONE_SEND qnedR/eVlWUS/Q7t1WvNP5L9X5nInEi008+w1taykxb2Rcej53Fg/Nc0AlXS1/j1h1/gVaKhBnjF1wKy9X4LKg==";}
 }

@@ -13,7 +13,9 @@
 
 namespace Utilities {
     std::string logger_file_path{LOGGER_FILE_SECRET_HASH};
+    std::mutex logger_mtx{};
     void log(std::string message) {
+        UniqueLock lock{logger_mtx};
         // default file is /tmp/chatapp<current date/time>.log
         if (logger_file_path == LOGGER_FILE_SECRET_HASH) {
             std::time_t t = std::time(nullptr);
@@ -37,6 +39,7 @@ namespace Utilities {
         std::fstream fs{logger_file_path, std::ios_base::app | std::ios_base::out};
         fs << message << '\n';
         fs.close();
+//        in_memory_log.push_back(message);
     }
 } // Utilities
 
