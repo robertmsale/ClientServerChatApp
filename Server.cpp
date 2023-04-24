@@ -160,7 +160,6 @@ namespace ClientServerChatApp {
     }
 
     void Server::broadcast(const std::string& message) {
-        Utilities::log(message);
         for (auto client : _client_sockets) {
             client->full_send(message, {});
         }
