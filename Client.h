@@ -5,7 +5,7 @@
 #ifndef CLIENTSERVERCHATAPP_CLIENT_H
 #define CLIENTSERVERCHATAPP_CLIENT_H
 
-#include "SocketEntity.h"
+#include "Console.h"
 
 namespace ClientServerChatApp {
     /**

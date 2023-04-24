@@ -13,7 +13,7 @@ All other sources tie the project together but don't necessarily deal with socke
 
 #### Phase 1 Complete
 
-All TCP aspects have been completed. App now uses hooks architecture. Any time an error event occurs it runs the associated event handler stored in `*Socket::*_handlers`. All possible errors are in `libsocket/Errors.h`. Client and server processes now gracefully disconnect. The need for `tmux` to kill the windows is no longer necessary because deadlocks have been fixed, but it's still helpful for development. 
+All TCP aspects have been completed. App now uses hooks architecture. Any time an error event occurs it runs the associated event handler stored in `*Socket::*_handlers`. All possible errors are in `libsocket/Errors.h`. Client and server processes now gracefully disconnect. The need for `tmux` to kill the windows is no longer necessary because deadlocks have been fixed using `ShutdownTasks` hooks, but it's still helpful for development. 
 
 ## Dependencies
 

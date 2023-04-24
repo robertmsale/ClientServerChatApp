@@ -44,6 +44,22 @@ namespace {
             case LibSocket::SocketConnectError::SUCCESS: return "[INFO]: Connection successful!";
         }
     }
+    std::string receive_err_msg(LibSocket::SocketReceiveError err) {
+        std::string rv{"[ERROR]: Receive Failed - "};
+        switch (err) {
+            case LibSocket::SocketReceiveError::AGAIN: return rv + "no connections accepted right now.";
+            case LibSocket::SocketReceiveError::BAD_FD: return rv + "bad file descriptor.";
+            case LibSocket::SocketReceiveError::CONNECTION_REFUSED: return rv + "connection refused.";
+            case LibSocket::SocketReceiveError::FAULT: return rv + "buffer pointer outside address space.";
+            case LibSocket::SocketReceiveError::INTERRUPTED: return rv + "interrupted.";
+            case LibSocket::SocketReceiveError::INVALID_ARG: return rv + "invalid argument passed.";
+            case LibSocket::SocketReceiveError::NO_MEMORY: return rv + "no memory available.";
+            case LibSocket::SocketReceiveError::NOT_CONNECTED: return rv + "not connected.";
+            case LibSocket::SocketReceiveError::NOT_A_SOCKET: return rv + "not a socket.";
+            case LibSocket::SocketReceiveError::DISCONNECTING: return "[WARNING]: socket disconnecting.";
+            case LibSocket::SocketReceiveError::SUCCESS: return "";
+        }
+    }
 }
 
 namespace ClientServerChatApp {
@@ -57,6 +73,7 @@ namespace ClientServerChatApp {
     }
 
     void Client::run_client(Client* client) {
+        // define create handlers
         client->create_handlers[LibSocket::SocketCreateError::SUCCESS] = [&] {
             client->sync_socket_created.resolve(true);
         };
@@ -66,6 +83,7 @@ namespace ClientServerChatApp {
             ShutdownTasks::instance().execute();
             client->console->refresh_text.resolve(true);
         };
+        // define connect handlers
         client->connect_handlers[LibSocket::SocketConnectError::SUCCESS] = [&] {
             client->sync_socket_established.resolve(true);
         };
@@ -90,7 +108,10 @@ namespace ClientServerChatApp {
             client->console->push_message("[INFO]: Server is shutting down. Exiting.");
             ShutdownTasks::instance().execute();
         };
-//        for (auto err: LibSocket::all_receive_errors) client->receive_handlers[err]
+        for (auto err: LibSocket::all_receive_errors) client->receive_handlers[err] = [&] (const std::string& payload, Socket* socket) {
+            client->console->push_message(receive_err_msg(err));
+            ShutdownTasks::instance().execute();
+        };
         for (auto err: LibSocket::all_send_errors) client->send_handlers[err] = [&] (const std::string& payload) {
             client->console->push_message("[WARNING]: Message failed to send");
         };
@@ -108,8 +129,6 @@ namespace ClientServerChatApp {
             client->sync_registered.resolve(false);
             return;
         }
-        std::mutex glmtx;
-        std::vector<std::string> getlist_res;
         client->sync_registered.resolve(true);
         client->console->input_hooks.push([&](char* buff) {
             if (buff[0] == 'q') {
@@ -122,20 +141,10 @@ namespace ClientServerChatApp {
             }
             }, 1);
         client->console->input_hooks.set_active(1, false);
-//        client->console->render_hooks.push([&] (SmartConsole::Console* c) {
-//            for (auto i: getlist_res) {
-//                std::cout << i << '\n';
-//            }
-//            std::string msg{"Press q to go back"};
-//            SmartConsole::SetCursorPosition(std::cout, c->console_width()-msg.size()-1, c->console_height());
-//            std::cout << msg << std::flush;
-//        }, 2);
-//        client->console->render_hooks.set_active(2, false);
         std::thread sender{[&] {
             while (!client->console->shutdown.load()) {
                 std::string payload = client->send_buffer.rx();
                 if (payload.starts_with(Commands::GET_LOG()) || payload.starts_with(Commands::GET_LIST())) {
-//                    UniqueLock lock{glmtx};
                     // disable normal hooks
                     client->console->input_hooks.set_active(0, false);
                     client->console->render_hooks.set_active(1, false);

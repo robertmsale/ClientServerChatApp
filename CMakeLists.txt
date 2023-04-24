@@ -6,8 +6,6 @@ set(CMAKE_CXX_STANDARD 20)
 
 # sources shared by client and server
 set(SHARED_SRCS
-        SocketEntity.cpp
-        SocketEntity.h
         Commands.h
         Console.cpp
         Console.h
