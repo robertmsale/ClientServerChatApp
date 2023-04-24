@@ -82,18 +82,18 @@ namespace ClientServerChatApp {
                 client->receive_handlers[err] = receive_err_handler;
             }
             client->receive_handlers[LibSocket::SocketReceiveError::DISCONNECTING] = [&] (const std::string& payload, Socket* socket) {
-//                std::string username{};
-//                if (server->users.contains(socket->get_fd())) username = server->users[socket->get_fd()];
-//                for(size_t i = 0; i < server->_client_sockets.size(); ++i) {
-//                    if (socket->get_fd() == server->_client_sockets[i]->get_fd()) {
-////                        delete server->_client_sockets[i];
-////                        server->_client_sockets.erase(server->_client_sockets.begin() + i);
-//                        break;
-//                    }
-//                }
-//                if (username.empty()) return;
-//                std::string msg = "[INFO]: " + username + " disconnected";
-//                server->broadcast(msg);
+                std::string username{};
+                if (server->users.contains(socket->get_fd())) username = server->users[socket->get_fd()];
+                for(size_t i = 0; i < server->_client_sockets.size(); ++i) {
+                    if (socket->get_fd() == server->_client_sockets[i]->get_fd()) {
+//                        delete server->_client_sockets[i];
+//                        server->_client_sockets.erase(server->_client_sockets.begin() + i);
+                        break;
+                    }
+                }
+                if (username.empty()) return;
+                std::string msg = "[INFO]: " + username + " disconnected";
+                server->broadcast(msg);
             };
             Utilities::log(conn_msg);
 

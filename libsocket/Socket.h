@@ -281,6 +281,15 @@ namespace LibSocket {
             int rflags{0};
             for(auto f: flags) rflags |= (int)f;
             auto res = ::recv(_fd, &size, sizeof size, rflags);
+            auto err = (SocketReceiveError)errno;
+            if (res == -1 && receive_handlers.contains(err)) {
+                receive_handlers[err]("", this);
+                return "";
+            } else if (res == 0 && receive_handlers.contains(SocketReceiveError::DISCONNECTING)) {
+                receive_handlers[SocketReceiveError::DISCONNECTING]("", this);
+                return "";
+            }
+            if (res == 1 && size == 0) return "";
             char buff[size + 1];
             memset(buff, 0, size + 1);
             this->receive(buff, size, flags);

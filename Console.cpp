@@ -470,7 +470,7 @@ namespace SmartConsole {
 
     void Console::run_input_capture(SmartConsole::Console *console) {
         ClientServerChatApp::ShutdownTasks::instance().push_task([] {
-            char e = 'a';
+            char e = '\n';
             write(STDIN_FILENO, &e, 1);
         });
         console->input_hooks.push([&] (char* buff) {

@@ -87,8 +87,8 @@ namespace ClientServerChatApp {
         };
         client->receive_handlers[LibSocket::SocketReceiveError::SUCCESS] = recv_success_handler;
         client->receive_handlers[LibSocket::SocketReceiveError::DISCONNECTING] = [&](const std::string& _payload_, Socket* socket) {
-//            client->console->push_message("[INFO]: Server is shutting down. Exiting.");
-//            ShutdownTasks::instance().execute();
+            client->console->push_message("[INFO]: Server is shutting down. Exiting.");
+            ShutdownTasks::instance().execute();
         };
 //        for (auto err: LibSocket::all_receive_errors) client->receive_handlers[err]
         for (auto err: LibSocket::all_send_errors) client->send_handlers[err] = [&] (const std::string& payload) {
