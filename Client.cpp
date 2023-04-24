@@ -6,6 +6,45 @@
 #include "Commands.h"
 #include "ShutdownTasks.h"
 
+namespace {
+    std::string create_err_msg(LibSocket::SocketCreateError err) {
+        std::string rv = "[ERROR]: Creation failed - ";
+        switch (err) {
+            case LibSocket::SocketCreateError::ACCESS_DENIED: return rv + "access denied.";
+            case LibSocket::SocketCreateError::ADDRESS_FAMILY_NOT_SUPPORTED: return rv + "address family not supported.";
+            case LibSocket::SocketCreateError::INVALID_FLAG: return rv + "invalid flag.";
+            case LibSocket::SocketCreateError::OPEN_FD_LIMIT: return rv + "open file descriptor limit.";
+            case LibSocket::SocketCreateError::NO_BUFFERS_AVAILABLE: return rv + "no buffers available.";
+            case LibSocket::SocketCreateError::NO_MEMORY_AVAILABLE: return rv + "no memory available.";
+            case LibSocket::SocketCreateError::PROTOCOL_NOT_SUPPORTED: return rv + "protocol not supported.";
+            case LibSocket::SocketCreateError::SUCCESS: return "[INFO]: Created socket successfully!";
+        }
+    }
+    std::string connect_err_msg(LibSocket::SocketConnectError err) {
+        std::string rv = "[ERROR]: Connection failed - ";
+        switch (err) {
+            case LibSocket::SocketConnectError::ACCESS_DENIED: return rv + "access denied.";
+            case LibSocket::SocketConnectError::FIREWALL_BLOCKED: return rv + "firewall blocked.";
+            case LibSocket::SocketConnectError::ADDRESS_IN_USE: return rv + "address in use.";
+            case LibSocket::SocketConnectError::ADDRESS_NOT_AVAILABLE: return rv + "address not available.";
+            case LibSocket::SocketConnectError::FAMILY_NOT_SUPPORTED: return rv + "family not supported.";
+            case LibSocket::SocketConnectError::NOT_RIGHT_NOW: return rv + "not right now.";
+            case LibSocket::SocketConnectError::PREVIOUS_NOT_DONE: return rv + "previous not done.";
+            case LibSocket::SocketConnectError::BAD_FD: return rv + "bad file descriptor.";
+            case LibSocket::SocketConnectError::CONNECTION_REFUSED: return rv + "connection refused";
+            case LibSocket::SocketConnectError::FAULT: return rv + "fault.";
+            case LibSocket::SocketConnectError::IN_PROGRESS: return rv + "in progress.";
+            case LibSocket::SocketConnectError::INTERRUPTED: return rv + "interrupted.";
+            case LibSocket::SocketConnectError::ALREADY_CONNECTED: return rv + "already connected.";
+            case LibSocket::SocketConnectError::UNREACHABLE: return rv + "unreachable.";
+            case LibSocket::SocketConnectError::NOT_A_SOCKET: return rv + "not a socket.";
+            case LibSocket::SocketConnectError::PROTOTYPE_NOT_SUPPORTED: return rv + "prototype not supported.";
+            case LibSocket::SocketConnectError::TIMED_OUT: return rv + "timed out.";
+            case LibSocket::SocketConnectError::INVALID_PORT: return rv + "invalid port.";
+            case LibSocket::SocketConnectError::SUCCESS: return "[INFO]: Connection successful!";
+        }
+    }
+}
 
 namespace ClientServerChatApp {
 
@@ -21,9 +60,9 @@ namespace ClientServerChatApp {
         client->create_handlers[LibSocket::SocketCreateError::SUCCESS] = [&] {
             client->sync_socket_created.resolve(true);
         };
-        for(auto err: LibSocket::all_create_errors) client->create_handlers[err] = [&] {
+        for(const auto err: LibSocket::all_create_errors) client->create_handlers[err] = [&] {
             client->sync_socket_created.resolve(false);
-            client->console->push_message("[ERROR]: Failed to create socket. Shutting down now.");
+            client->console->push_message(create_err_msg(err));
             ShutdownTasks::instance().execute();
             client->console->refresh_text.resolve(true);
         };
@@ -32,7 +71,7 @@ namespace ClientServerChatApp {
         };
         for(auto err: LibSocket::all_connect_errors) client->connect_handlers[err] = [&] {
             client->sync_socket_created.resolve(false);
-            client->console->push_message("[ERROR]: Failed to connect to server.");
+            client->console->push_message(connect_err_msg(err));
             ShutdownTasks::instance().execute();
         };
         // create socket
