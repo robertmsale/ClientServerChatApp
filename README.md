@@ -3,6 +3,10 @@
 ___
 This is a *nix implementation of Computer Networking Chat App Project
 
+```bash
+xcode-select --install
+```
+
 #### Rubric code
 * `libsocket/*.(cpp|h)` Shared socket logic between client and server
 * `Client.h/cpp` Client socket logic
