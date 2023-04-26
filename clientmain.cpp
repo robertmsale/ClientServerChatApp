@@ -3,7 +3,7 @@
 #include "Client.h"
 #include "ShutdownTasks.h"
 
-#define PHASE 1
+#define PHASE 2
 
 void disable_echo(struct termios* orig);
 
@@ -27,7 +27,7 @@ int main() {
     console.messages.emplace_back("To get started, please enter the server IP Address.");
 #elif PHASE == 2
     console.messages.emplace_back("Welcome to Chat App!");
-    console.messages.emplace_back("To get started, use the $register command to register your username with the server.");
+//    console.messages.emplace_back("To get started, use the $register command to register your username with the server.");
 #endif
     // initialize console size
     console.update_console_size();
@@ -35,6 +35,10 @@ int main() {
     std::thread renderer_thread = console.initialize_renderer();
     std::thread input_capture_thread = console.initialize_input_capture();
     std::thread client_thread;
+    Utilities::DeferExec defer_console_cleanup{[&] {
+        renderer_thread.join();
+        input_capture_thread.join();
+    }};
     // create client vars
     ClientServerChatApp::Client client{&console};
     std::string username;
@@ -45,6 +49,38 @@ int main() {
     // user input validation
     std::regex ip_regex{"(([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])\\.){3}([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])"};
     std::regex port_regex{"([1-9][0-9]{0,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5])"};
+#else
+    {
+        console.push_message("Waiting for connection details...");
+        LibSocket::Socket<SocketSizeType> client_socket;
+        client_socket.create(LibSocket::SocketFamily::INET, LibSocket::Type::DATAGRAM);
+
+        sockaddr_in client_addr;
+        std::memset(&client_addr, 0, sizeof client_addr);
+        socklen_t client_len{sizeof client_addr};
+        client_addr.sin_family = AF_INET;
+        client_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+        client_addr.sin_port = htons(12345);
+        ::bind(client_socket.get_fd(), (sockaddr*)&client_addr, sizeof client_addr);
+        sockaddr_in server_addr;
+        std::memset(&server_addr, 0, sizeof server_addr);
+        timeval tv;
+        tv.tv_sec = 10;
+        tv.tv_usec = 0;
+        setsockopt(client_socket.get_fd(), SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof tv);
+        socklen_t clisize = sizeof client_addr;
+        auto res = ::recvfrom(client_socket.get_fd(), &server_addr, sizeof server_addr, 0, (sockaddr*)&client_addr, &clisize);
+        if (res < 0) {
+            console.push_message("[ERROR]: Failed to retrieve connection info. Shutting down.");
+            ClientServerChatApp::ShutdownTasks::instance().execute();
+            renderer_thread.join();
+            input_capture_thread.join();
+            return 1;
+        }
+        client_thread = client.initialize_client();
+        client.sync_addr.resolve(server_addr);
+    }
+    Utilities::DeferExec defer_client_cleanup{[&] {client_thread.join();}};
 #endif
     ClientServerChatApp::ShutdownTasks::instance().push_task([&] {
         console.shutdown.store(true);
@@ -94,9 +130,6 @@ int main() {
                 continue;
             }
             username = user_msg.substr(10);
-            client_thread = client.initialize_client();
-            client.sync_ip_address.resolve(ip_address);
-            client.sync_port.resolve(port);
             client.sync_username.resolve(username);
             auto res = client.sync_socket_created.retrieve();
             if (!res) continue;
@@ -109,11 +142,6 @@ int main() {
         // at this point client is registered so begin echoing user input to server
         client.send_buffer.tx(user_msg);
     }
-
-    // initiate shutdown
-    client_thread.join();
-    renderer_thread.join();
-    input_capture_thread.join();
 
     return 0;
 }

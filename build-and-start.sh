@@ -1,9 +1,6 @@
 #!/usr/bin/env bash
 
-# $1: build folder
-# $2: tmux session name
-BUILD_FOLDER="$1"
-SESSION_NAME="$2"
+source ./env
 
 # Here you can change the port if you want to
 PORT=33420
@@ -19,7 +16,6 @@ NUM_OF_CPU_CORES=1
 #|             #     # #          #    #     # #                    |
 #|              #####  #######    #     #####  #                    |
 #+------------------------------------------------------------------+
-
 ## Get CPU Cores
 
 # To speed up compilation, retrieve the number of CPU cores to use by compiler
@@ -54,6 +50,12 @@ fi
 if [[ -z "$BUILD_FOLDER" ]]
 then
   BUILD_FOLDER="./build"
+fi
+
+# Provide default client number
+if [[ -z "$NUM_OF_CLIENTS" ]]
+then
+  NUM_OF_CLIENTS=2
 fi
 
 ## Setup build folder
@@ -99,24 +101,31 @@ else
 
   tmux new-session -s "$SESSION_NAME" -n "$SESSION_NAME" -d
   tmux split-window -h
-  tmux split-window -v
+  for i in $(seq 1 $NUM_OF_CLIENTS)
+  do
+    if [[ $i -ne $NUM_OF_CLIENTS ]]
+    then
+      tmux split-window -v
+    fi
+  done
 
   # execute apps in each pane
   tmux send-keys -t 0 "./server $PORT" C-m
-  tmux send-keys -t 1 "./client" C-m
-  tmux send-keys -t 2 "./client" C-m
+  for i in $(seq 1 $NUM_OF_CLIENTS)
+  do
+  tmux send-keys -t $i "./client" C-m
+  done
 
   sleep 0.5
 
   # automatically enter connection info (works by looping each char and sending one at a time)
-  SendLetters $IP 1
-  sleep 0.1
-  SendLetters $PORT 1
-  sleep 0.1
-  SendLetters $IP 2
-  sleep 0.1
-  SendLetters $PORT 2
-  sleep 0.1
+  for i in $(seq 1 $NUM_OF_CLIENTS)
+  do
+    SendLetters $IP $i
+    sleep 0.1
+    SendLetters $PORT $i
+    sleep 0.1
+  done
 
   # turn on mouse only for this session's window
   tmux setw -g mouse on

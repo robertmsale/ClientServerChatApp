@@ -19,9 +19,11 @@ namespace ClientServerChatApp {
          * @param server Pointer to server object
          * @param port Port number to listen on
          */
-        static void run_server(Server* server, std::string port);
+        static void run_server(Server* server, std::string port, std::string ip);
 
         std::vector<std::shared_ptr<Socket>> _client_sockets;
+
+        LibSocket::ServerSocket<SocketSizeType> udp_socket;
     public:
         /// Child thread sends Socket created successful, main receives it
         SyncPoint<bool> sync_socket_created;
@@ -43,7 +45,7 @@ namespace ClientServerChatApp {
         void run_loop_timeout(size_t seconds, size_t microseconds = 0);
         void run_loop_timeout();
         std::map<int, std::string> users;
-        std::thread initialize_server(std::string port);
+        std::thread initialize_server(const std::string& port, const std::string& ip);
     };
 } // ClientServerChatApp
 

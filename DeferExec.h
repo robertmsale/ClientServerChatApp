@@ -17,9 +17,10 @@ namespace Utilities {
         /// Function to execute upon destruction
         std::function<void()> func;
     public:
-        explicit DeferExec(std::function<void()> _func): func(std::move(_func)) {}
+        explicit DeferExec(std::function<void()> _func): func(std::move(_func)), cancel{false} {}
+        bool cancel;
         ~DeferExec() {
-            func();
+            if (!cancel) func();
         }
     };
 }

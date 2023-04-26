@@ -10,15 +10,32 @@
 void disable_echo(struct termios* orig);
 
 int main(int argc, char** argv) {
+    std::string ip{"127.0.0.1"};
     if (argc < 2) {
-        std::cout << "Usage: server <port number> [log file]\n"
+        std::cout << "Usage: server <port number> [ip address] [log file]\n"
                      "\tExamples:\n"
                      "\t\tserver 33420\n"
+                     "\t\tserver 33420 127.0.0.1\n"
                      "\t\tserver 12345 messages.log\n" << std::endl;
         return 0;
     }
-    if (argc == 3) {
-        Utilities::logger_file_path = std::string{argv[2]};
+    if (!std::regex_match(argv[1], LibSocket::port_regex)) {
+        std::cout << "Usage: server <port number> [ip address] [log file]\n"
+                     "              ^^^^^^^^^^^^^\n"
+                     "The port you entered was invalid. Please try again.";
+        return 1;
+    }
+    if (argc > 2) {
+        if (!std::regex_match(std::string{argv[2]}, LibSocket::ipv4_regex)) {
+            std::cout << "Usage: server <port number> [ip address] [log file]\n"
+                         "                            ^^^^^^^^^^^^\n"
+                         "The IP you entered was invalid. Please try again.";
+            return 1;
+        }
+        ip = argv[2];
+    }
+    if (argc == 4) {
+        Utilities::logger_file_path = std::string{argv[3]};
     }
     struct termios orig_tios;
     tcgetattr(STDIN_FILENO, &orig_tios);
@@ -30,7 +47,7 @@ int main(int argc, char** argv) {
     console.messages.emplace_back("Welcome to Chat App server!");
     std::thread renderer = console.initialize_renderer();
     std::thread input_capturer = console.initialize_input_capture();
-    std::thread server_thread = server.initialize_server(port);
+    std::thread server_thread = server.initialize_server(port, ip);
     while (!console.shutdown.load()) std::this_thread::sleep_for(std::chrono::seconds(2));
     server_thread.join();
     input_capturer.join();

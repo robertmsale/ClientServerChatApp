@@ -469,10 +469,6 @@ namespace SmartConsole {
     }
 
     void Console::run_input_capture(SmartConsole::Console *console) {
-        ClientServerChatApp::ShutdownTasks::instance().push_task([] {
-            char e = '\n';
-            write(STDIN_FILENO, &e, 1);
-        });
         console->input_hooks.push([&] (char* buff) {
             if (buff[0] == (char)127) { // backspace
                 // do nothing if buffer is empty
@@ -518,11 +514,22 @@ namespace SmartConsole {
                 console->refresh_text.resolve(true);
             }
         });
+        // only one char is ever captured, but keep extra available just incase.
+        char buff[16];
+        timeval tv;
+        tv.tv_sec = 1;
+        tv.tv_usec = 0;
+        fd_set fds;
         while(!console->shutdown.load()) {
-            // only one char is ever captured, but keep extra available just incase.
-            char buff[16];
             // always clear that buffer
             memset(buff, 0, 16);
+
+            // check if a read is available
+            FD_ZERO(&fds);
+            FD_SET(STDIN_FILENO, &fds);
+            select(STDIN_FILENO + 1, &fds, nullptr, nullptr, &tv);
+            if(!FD_ISSET(STDIN_FILENO, &fds)) continue;
+
             // read stdin file descriptor and output results to buffer
             read(STDIN_FILENO, &buff, 16);
 

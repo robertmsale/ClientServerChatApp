@@ -5,6 +5,7 @@
 #include "Client.h"
 #include "Commands.h"
 #include "ShutdownTasks.h"
+#include <arpa/inet.h>
 
 namespace {
     std::string create_err_msg(LibSocket::SocketCreateError err) {
@@ -117,9 +118,11 @@ namespace ClientServerChatApp {
         };
         client->create(LibSocket::SocketFamily::INET, LibSocket::Type::STREAM);
         if (client->console->shutdown.load()) return;
-        auto ip = client->sync_ip_address.retrieve();
-        auto port = client->sync_port.retrieve();
-        client->connect_v4(ip, port);
+//        auto ip = client->sync_ip_address.retrieve();
+//        auto port = client->sync_port.retrieve();
+//        client->connect_v4(ip, port);
+        auto addr = client->sync_addr.retrieve();
+        client->connect((sockaddr*)&addr, sizeof addr);
         if (client->console->shutdown.load()) return;
         // Initiate message loop
         auto username = client->sync_username.retrieve();
@@ -169,6 +172,7 @@ namespace ClientServerChatApp {
                 client->full_send(payload, {});
             }
         }};
+        Utilities::DeferExec defer_sender_cleanup{[&] {sender.join();}};
         while(!client->console->shutdown.load()) {
             if (!client->console->alternate_buffer.load()) client->receive_str({});
         }

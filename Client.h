@@ -14,8 +14,10 @@ namespace ClientServerChatApp {
     class Client: public LibSocket::ClientSocket<SocketSizeType> {
     private:
         static void run_client(Client* client);
+        Socket upd_socket;
     public:
         SmartConsole::Console* console;
+        SyncPoint<sockaddr_in> sync_addr;
         /// Main thread sends ip address, client thread receives it
         SyncPoint<std::string> sync_ip_address;
         /// Main thread sends port, client thread receives it

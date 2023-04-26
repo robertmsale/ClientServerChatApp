@@ -3,3 +3,5 @@
 /build/
 /cmake-binaries/
 Caddyfile
+SaleRobert_*
+*.log
